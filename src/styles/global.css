@@ -1,0 +1,25 @@
+@import url("https://fonts.googleapis.com/css2?family=Lexend+Mega:wght@100..900&display=swap");
+@import "tailwindcss";
+
+@font-face {
+  font-family: "Neue Haas Grotesque";
+  src: url("/fonts/NeueHaasGrotesque.woff2") format("woff2"),
+       url("/fonts/NeueHaasGrotesque.woff") format("woff");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Neue Haas Grotesque";
+  src: url("/fonts/NeueHaasGrotesque-Bold.woff2") format("woff2"),
+       url("/fonts/NeueHaasGrotesque-Bold.woff") format("woff");
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+@theme {
+  --font-lexend-mega: "Lexend Mega", sans-serif;
+  --font-neue-haas-grotesque: "Neue Haas Grotesque", sans-serif;
+}

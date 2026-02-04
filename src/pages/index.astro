@@ -1,0 +1,112 @@
+---
+import '../styles/global.css';
+import { HandModel } from '../components/HandModel';
+---
+
+<html lang="en" class="h-[100dvh] font-neue-haas-grotesque">
+	<head>
+		<meta charset="utf-8" />
+		<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+		<link rel="icon" href="/favicon.ico" />
+		<meta name="viewport" content="width=device-width" />
+		<meta name="generator" content={Astro.generator} />
+		<title>Thoughtform Worldwide</title>
+	</head>
+	<body class="flex h-[100dvh] flex-col bg-[#FBF8F4] text-black antialiased">
+		<div class="relative mx-auto grid min-h-0 w-full flex-1 grid-rows-[auto_1fr_auto] px-6 py-6 pb-2 lg:px-6">
+			<!-- Header -->
+			<header class="mb-4 flex items-center justify-between">
+				<a href="/" class="flex items-center gap-2">
+					<img src="/MasTer-Hand.png" alt="" class="h-16 w-auto object-contain" width="64" height="64" />
+					<span class="block text-2xl font-bold leading-none tracking-tight">
+						THOUGHTFORM<br />WORLDWIDE
+					</span>
+				</a>
+				<button
+					type="button"
+					class="rounded-md border border-black px-4 py-2 text-sm font-medium transition-colors hover:bg-black hover:text-white"
+				>
+					Contact
+				</button>
+			</header>
+
+			<!-- Main content -->
+			<main class="flex min-h-0 flex-col">
+				<div class="grid gap-12 lg:grid-cols-[1fr_auto] lg:items-center lg:gap-16">
+					<div>
+						<h1 class="text-2xl font-normal leading-[1.1] sm:text-5xl lg:text-7xl xl:text-8xl">
+							Modern solutions for the independent landscape.
+						</h1>
+					</div>
+				</div>
+
+				<div class="min-h-0 flex-1" aria-hidden="true"></div>
+
+				<div class="max-w-2xl mb-6">
+					<!-- <h2 class="mb-4 text-xl font-bold">
+						We built a studio that delivers the creative power your brand and team needs.
+					</h2> -->
+					<p class="mb-8 leading-relaxed text-black/90">
+						Thoughtform Worldwide is a boutique development studio focused on the intersection of technical precision and cultural influence. We provide specialist digital and physical infrastructure for creators and brands who have outgrown standard solutions. Referral-based support for those building what’s next.
+					</p>
+					<button
+						type="button"
+						class="rounded-md bg-black px-6 py-3 text-sm font-medium text-white transition-colors hover:bg-black/90"
+					>
+						Build with us
+					</button>
+				</div>
+			</main>
+
+			<!-- Footer -->
+			<footer class="flex flex-col gap-6 border-t border-black/10 pt-3 sm:flex-row sm:items-center sm:justify-between">
+				<div class="flex flex-wrap gap-x-8 gap-y-2">
+					<a href="mailto:julian@thoughtform.world" class="flex items-center gap-1 hover:underline">
+						<span>→</span>
+						julian@thoughtform.world
+					</a>
+					<span class="flex items-center gap-1">
+						<span>→</span>
+						Los Angeles, CA
+					</span>
+				</div>
+				<div class="flex flex-wrap gap-3">
+					<a
+						href="#"
+						class="rounded-md border border-black px-4 py-2 text-sm font-medium transition-colors hover:bg-black hover:text-white"
+					>
+						Instagram
+					</a>
+					<a
+						href="#"
+						class="rounded-md border border-black px-4 py-2 text-sm font-medium transition-colors hover:bg-black hover:text-white"
+					>
+						LinkedIn
+					</a>
+					<a
+						href="#"
+						class="rounded-md border border-black px-4 py-2 text-sm font-medium transition-colors hover:bg-black hover:text-white"
+					>
+						Substack
+					</a>
+					<a
+						href="#"
+						class="rounded-md border border-black px-4 py-2 text-sm font-medium transition-colors hover:bg-black hover:text-white"
+					>
+						Events
+					</a>
+				</div>
+			</footer>
+
+			<!-- 3D hand: bottom-right 2/3 of viewport, drag to rotate -->
+			<div
+				class="pointer-events-none fixed bottom-0 right-0 z-0 h-[66.67dvh] w-[66.67vw] min-w-[280px]"
+				aria-hidden="true"
+			>
+				<div class="pointer-events-auto h-full w-full">
+					<HandModel client:load />
+				</div>
+			</div>
+		</div>
+	</body>
+</html>
