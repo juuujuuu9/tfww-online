@@ -23,3 +23,12 @@
   --font-lexend-mega: "Lexend Mega", sans-serif;
   --font-neue-haas-grotesque: "Neue Haas Grotesque", sans-serif;
 }
+
+/* Floating hover effects for 3D model */
+.model-container {
+  transition: filter 0.5s ease-out;
+}
+
+.model-container:hover {
+  filter: drop-shadow(0 0 15px rgba(0, 0, 0, 0.05));
+}
