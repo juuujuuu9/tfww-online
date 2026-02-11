@@ -5,8 +5,8 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 
 const GLB_PATH = '/3d/hand.glb';
 
-const INIT_POS = { x: -0.05, y: -0.35, z: 0.75 };
-const INIT_ROT = { x: -0.99, y: 2.91, z: 0.11 };
+const INIT_POS = { x: 0.10, y: -0.75, z: 0.65 };
+const INIT_ROT = { x: -1.34, y: 2.96, z: 0.11 };
 
 /** Max rotation (radians) when cursor is at edge; rest state. */
 const CURSOR_TILT_STRENGTH = 0.12;
