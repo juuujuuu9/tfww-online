@@ -30,5 +30,5 @@
 }
 
 .model-container:hover {
-  filter: drop-shadow(0 0 15px rgba(0, 0, 0, 0.05));
+  filter: drop-shadow(0 0 15px rgba(30, 64, 175, 0.15));
 }

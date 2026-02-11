@@ -2,26 +2,106 @@ import { useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { TextureLoader } from 'three';
 
 const GLB_PATH = '/3d/hand.glb';
 
+// Towel cotton texture paths
+const TEXTURE_BASE_PATH = '/3d/TowelCotton001';
+const TOWEL_TEXTURES = {
+  color: `${TEXTURE_BASE_PATH}/TowelCotton001_COL_1K.png`,
+  normal: `${TEXTURE_BASE_PATH}/TowelCotton001_NRM_1K.png`,
+  roughness: `${TEXTURE_BASE_PATH}/TowelCotton001_ROUGHNESS_1K_METALNESS.png`,
+  ao: `${TEXTURE_BASE_PATH}/TowelCotton001_AO_1K.png`,
+  displacement: `${TEXTURE_BASE_PATH}/TowelCotton001_DISP_1K.png`
+};
+
+// Function to create towel cotton material
+const createTowelCottonMaterial = (textureLoader: TextureLoader) => {
+  const material = new THREE.MeshStandardMaterial({
+    color: 0xffffff,
+    roughness: 0.8, // Cotton is quite rough
+    metalness: 0.0, // Cotton is not metallic
+  });
+
+  // Load color texture
+  textureLoader.load(
+    TOWEL_TEXTURES.color,
+    (texture) => {
+      texture.colorSpace = THREE.SRGBColorSpace;
+      texture.wrapS = THREE.RepeatWrapping;
+      texture.wrapT = THREE.RepeatWrapping;
+      texture.repeat.set(2, 2); // Scale down the texture for better detail
+      material.map = texture;
+      material.needsUpdate = true;
+    },
+    undefined,
+    (error) => console.warn('Failed to load color texture:', error)
+  );
+
+  // Load normal map
+  textureLoader.load(
+    TOWEL_TEXTURES.normal,
+    (texture) => {
+      texture.wrapS = THREE.RepeatWrapping;
+      texture.wrapT = THREE.RepeatWrapping;
+      texture.repeat.set(2, 2);
+      material.normalMap = texture;
+      material.needsUpdate = true;
+    },
+    undefined,
+    (error) => console.warn('Failed to load normal texture:', error)
+  );
+
+  // Load roughness map
+  textureLoader.load(
+    TOWEL_TEXTURES.roughness,
+    (texture) => {
+      texture.wrapS = THREE.RepeatWrapping;
+      texture.wrapT = THREE.RepeatWrapping;
+      texture.repeat.set(2, 2);
+      material.roughnessMap = texture;
+      material.needsUpdate = true;
+    },
+    undefined,
+    (error) => console.warn('Failed to load roughness texture:', error)
+  );
+
+  // Load ambient occlusion map
+  textureLoader.load(
+    TOWEL_TEXTURES.ao,
+    (texture) => {
+      texture.wrapS = THREE.RepeatWrapping;
+      texture.wrapT = THREE.RepeatWrapping;
+      texture.repeat.set(2, 2);
+      material.aoMap = texture;
+      material.needsUpdate = true;
+    },
+    undefined,
+    (error) => console.warn('Failed to load AO texture:', error)
+  );
+
+  return material;
+};
+
 // Simple placeholder geometry when GLB file is not available
-const createPlaceholderHand = () => {
+const createPlaceholderHand = (textureLoader: TextureLoader) => {
   const group = new THREE.Group();
+  
+  // Create towel cotton material for placeholder
+  const placeholderMaterial = createTowelCottonMaterial(textureLoader);
   
   // Create a simple hand-like shape using basic geometries
   const palmGeometry = new THREE.BoxGeometry(0.8, 0.3, 0.1);
-  const palmMaterial = new THREE.MeshStandardMaterial({ color: 0xf4f4f4 });
-  const palm = new THREE.Mesh(palmGeometry, palmMaterial);
+  const palm = new THREE.Mesh(palmGeometry, placeholderMaterial);
   palm.position.set(0, 0, 0);
   group.add(palm);
   
   // Fingers
   const fingerGeometry = new THREE.BoxGeometry(0.1, 0.6, 0.08);
-  const fingerMaterial = new THREE.MeshStandardMaterial({ color: 0xe8e8e8 });
   
   for (let i = 0; i < 4; i++) {
-    const finger = new THREE.Mesh(fingerGeometry, fingerMaterial);
+    const finger = new THREE.Mesh(fingerGeometry, placeholderMaterial);
     finger.position.set(-0.3 + i * 0.2, 0.3, 0);
     finger.rotation.z = Math.PI * 0.1;
     group.add(finger);
@@ -29,7 +109,7 @@ const createPlaceholderHand = () => {
   
   // Thumb
   const thumbGeometry = new THREE.BoxGeometry(0.08, 0.4, 0.08);
-  const thumb = new THREE.Mesh(thumbGeometry, fingerMaterial);
+  const thumb = new THREE.Mesh(thumbGeometry, placeholderMaterial);
   thumb.position.set(0.4, 0, 0);
   thumb.rotation.z = -Math.PI * 0.2;
   group.add(thumb);
@@ -60,38 +140,6 @@ const MIN_SCALE = 1.0;
 const MAX_SCALE = 1.01; // Minimal scale effect (1%)
 const SCALE_SMOOTHING = 0.02; // Very slow scale transitions
 
-function SliderRow({
-  label,
-  value,
-  min,
-  max,
-  step,
-  onChange,
-}: {
-  label: string;
-  value: number;
-  min: number;
-  max: number;
-  step: number;
-  onChange: (v: number) => void;
-}): JSX.Element {
-  return (
-    <label className="flex items-center gap-2 text-xs">
-      <span className="w-6 shrink-0 font-medium">{label}</span>
-      <input
-        type="range"
-        min={min}
-        max={max}
-        step={step}
-        value={value}
-        onChange={(e) => onChange(Number(e.target.value))}
-        className="flex-1 accent-black"
-      />
-      <span className="w-12 shrink-0 tabular-nums">{value.toFixed(2)}</span>
-    </label>
-  );
-}
-
 export function HandModel(): JSX.Element {
   const containerRef = useRef<HTMLDivElement>(null);
   const modelRef = useRef<THREE.Group | null>(null);
@@ -106,14 +154,7 @@ export function HandModel(): JSX.Element {
   const mouseProximitySmoothedRef = useRef(1); // Smoothed version
   const timeRef = useRef(0);
 
-  const [position, setPosition] = useState(INIT_POS);
-  const [rotation, setRotation] = useState(INIT_ROT);
   const [isHovered, setIsHovered] = useState(false);
-
-  useEffect(() => {
-    positionRef.current = position;
-    rotationRef.current = rotation;
-  }, [position, rotation]);
 
   useEffect(() => {
     const container = containerRef.current;
@@ -130,7 +171,7 @@ export function HandModel(): JSX.Element {
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    renderer.toneMappingExposure = 1;
+    renderer.toneMappingExposure = 1.5;
     container.appendChild(renderer.domElement);
 
     const controls = new OrbitControls(camera, renderer.domElement);
@@ -141,6 +182,8 @@ export function HandModel(): JSX.Element {
     controls.target.set(0, 0, 0);
 
     const loader = new GLTFLoader();
+    const textureLoader = new TextureLoader();
+    
     loader.load(
       GLB_PATH,
       (gltf) => {
@@ -155,6 +198,10 @@ export function HandModel(): JSX.Element {
               mesh.visible = false;
               return;
             }
+            
+            // Apply towel cotton material
+            mesh.material = createTowelCottonMaterial(textureLoader);
+            
             mesh.castShadow = true;
             mesh.receiveShadow = true;
           }
@@ -170,7 +217,7 @@ export function HandModel(): JSX.Element {
       (err) => {
         console.warn('GLB file not found, using placeholder geometry:', err);
         // Create and use placeholder geometry
-        const placeholderModel = createPlaceholderHand();
+        const placeholderModel = createPlaceholderHand(textureLoader);
         modelRef.current = placeholderModel;
         
         // Center the placeholder
@@ -182,14 +229,29 @@ export function HandModel(): JSX.Element {
       }
     );
 
-    const ambient = new THREE.AmbientLight(0xffffff, 0.7);
+    // Much stronger ambient light for overall brightness
+    const ambient = new THREE.AmbientLight(0xffffff, 0.95);
     scene.add(ambient);
-    const key = new THREE.DirectionalLight(0xffffff, 0.6);
+    
+    // Strong key light
+    const key = new THREE.DirectionalLight(0xffffff, 1.0);
     key.position.set(2, 2, 3);
     scene.add(key);
-    const fill = new THREE.DirectionalLight(0xffffff, 0.3);
+    
+    // Medium fill light
+    const fill = new THREE.DirectionalLight(0xffffff, 0.6);
     fill.position.set(-1, 0.5, 2);
     scene.add(fill);
+    
+    // Additional rim light from behind to highlight edges
+    const rim = new THREE.DirectionalLight(0xffffff, 0.4);
+    rim.position.set(0, 0, -3);
+    scene.add(rim);
+    
+    // Soft overhead light
+    const overhead = new THREE.DirectionalLight(0xffffff, 0.3);
+    overhead.position.set(0, 3, 0);
+    scene.add(overhead);
 
     const centerX = (): number => window.innerWidth / 2;
     const centerY = (): number => window.innerHeight / 2;
@@ -320,65 +382,6 @@ export function HandModel(): JSX.Element {
   return (
     <div className={`relative h-full w-full min-h-[200px] transition-all duration-300 ease-out model-container ${isHovered ? 'hover' : ''}`} aria-hidden="true">
       <div ref={containerRef} className="h-full w-full" />
-      <div
-        className="absolute bottom-2 left-2 right-2 rounded-md border border-black/20 bg-white/90 p-3 shadow-sm backdrop-blur sm:right-auto sm:w-52"
-        aria-hidden="true"
-      >
-        <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-black/70">Position</p>
-        <div className="flex flex-col gap-1.5">
-          <SliderRow
-            label="X"
-            value={position.x}
-            min={-2}
-            max={2}
-            step={0.05}
-            onChange={(x) => setPosition((p) => ({ ...p, x }))}
-          />
-          <SliderRow
-            label="Y"
-            value={position.y}
-            min={-2}
-            max={2}
-            step={0.05}
-            onChange={(y) => setPosition((p) => ({ ...p, y }))}
-          />
-          <SliderRow
-            label="Z"
-            value={position.z}
-            min={-2}
-            max={2}
-            step={0.05}
-            onChange={(z) => setPosition((p) => ({ ...p, z }))}
-          />
-        </div>
-        <p className="mb-2 mt-3 text-xs font-semibold uppercase tracking-wide text-black/70">Rotation</p>
-        <div className="flex flex-col gap-1.5">
-          <SliderRow
-            label="X"
-            value={rotation.x}
-            min={-Math.PI}
-            max={Math.PI}
-            step={0.05}
-            onChange={(x) => setRotation((r) => ({ ...r, x }))}
-          />
-          <SliderRow
-            label="Y"
-            value={rotation.y}
-            min={-Math.PI}
-            max={Math.PI}
-            step={0.05}
-            onChange={(y) => setRotation((r) => ({ ...r, y }))}
-          />
-          <SliderRow
-            label="Z"
-            value={rotation.z}
-            min={-Math.PI}
-            max={Math.PI}
-            step={0.05}
-            onChange={(z) => setRotation((r) => ({ ...r, z }))}
-          />
-        </div>
-      </div>
     </div>
   );
 }
