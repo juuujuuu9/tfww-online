@@ -4,7 +4,7 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { TextureLoader } from 'three';
 
-const GLB_PATH = '/3d/hand.glb';
+const GLB_PATH = '/3d/masTer_hand.glb';
 
 // Towel cotton texture paths
 const TEXTURE_BASE_PATH = '/3d/TowelCotton001';
@@ -119,6 +119,7 @@ const createPlaceholderHand = (textureLoader: TextureLoader) => {
 
 const INIT_POS = { x: 0.10, y: -0.75, z: 0.65 };
 const INIT_ROT = { x: -1.34, y: 2.96, z: 0.11 };
+const RAD_TO_DEG = 180 / Math.PI;
 
 /** Max rotation (radians) when cursor is at edge; rest state. */
 const CURSOR_TILT_STRENGTH = 0.12;
@@ -143,8 +144,18 @@ const SCALE_SMOOTHING = 0.02; // Very slow scale transitions
 export function HandModel(): JSX.Element {
   const containerRef = useRef<HTMLDivElement>(null);
   const modelRef = useRef<THREE.Group | null>(null);
+  const baseScaleRef = useRef(1);
   const positionRef = useRef(INIT_POS);
   const rotationRef = useRef(INIT_ROT);
+  const rotationSliderRef = useRef({ ...INIT_ROT });
+  const scaleSliderRef = useRef(1);
+
+  const [rotationDeg, setRotationDeg] = useState({
+    x: Math.round(INIT_ROT.x * RAD_TO_DEG),
+    y: Math.round(INIT_ROT.y * RAD_TO_DEG),
+    z: Math.round(INIT_ROT.z * RAD_TO_DEG)
+  });
+  const [scale, setScale] = useState(1);
   /** Normalized cursor from viewport center: -1..1, (0,0) = center. */
   const cursorRef = useRef({ x: 0, y: 0 });
   const cursorSmoothedRef = useRef({ x: 0, y: 0 });
@@ -183,48 +194,50 @@ export function HandModel(): JSX.Element {
 
     const loader = new GLTFLoader();
     const textureLoader = new TextureLoader();
-    
+    const TARGET_SIZE = 1.8;
+
+    const processModel = (model: THREE.Group, texLoader: TextureLoader): THREE.Group => {
+      model.traverse((child) => {
+        if ((child as THREE.Mesh).isMesh) {
+          const mesh = child as THREE.Mesh;
+          const mat = Array.isArray(mesh.material) ? mesh.material[0] : mesh.material;
+          if (mat?.name === 'Material__350') {
+            mesh.visible = false;
+            return;
+          }
+          mesh.material = createTowelCottonMaterial(texLoader);
+          mesh.castShadow = true;
+          mesh.receiveShadow = true;
+        }
+      });
+      const box = new THREE.Box3().setFromObject(model);
+      const center = box.getCenter(new THREE.Vector3());
+      model.position.sub(center);
+      const size = new THREE.Vector3();
+      box.getSize(size);
+      const maxDim = Math.max(size.x, size.y, size.z, 0.001);
+      const baseScale = TARGET_SIZE / maxDim;
+      baseScaleRef.current = baseScale;
+      model.scale.setScalar(baseScale);
+      return model;
+    };
+
     loader.load(
       GLB_PATH,
       (gltf) => {
-        const model = gltf.scene;
+        const model = processModel(gltf.scene, textureLoader);
         modelRef.current = model;
-
-        model.traverse((child) => {
-          if ((child as THREE.Mesh).isMesh) {
-            const mesh = child as THREE.Mesh;
-            const mat = Array.isArray(mesh.material) ? mesh.material[0] : mesh.material;
-            if (mat?.name === 'Material__350') {
-              mesh.visible = false;
-              return;
-            }
-            
-            // Apply towel cotton material
-            mesh.material = createTowelCottonMaterial(textureLoader);
-            
-            mesh.castShadow = true;
-            mesh.receiveShadow = true;
-          }
-        });
-
-        const box = new THREE.Box3().setFromObject(model);
-        const center = box.getCenter(new THREE.Vector3());
-        model.position.sub(center);
-
         scene.add(model);
       },
       undefined,
       (err) => {
         console.warn('GLB file not found, using placeholder geometry:', err);
-        // Create and use placeholder geometry
         const placeholderModel = createPlaceholderHand(textureLoader);
-        modelRef.current = placeholderModel;
-        
-        // Center the placeholder
         const box = new THREE.Box3().setFromObject(placeholderModel);
         const center = box.getCenter(new THREE.Vector3());
         placeholderModel.position.sub(center);
-        
+        modelRef.current = placeholderModel;
+        baseScaleRef.current = 1;
         scene.add(placeholderModel);
       }
     );
@@ -319,7 +332,7 @@ export function HandModel(): JSX.Element {
       const model = modelRef.current;
       if (model) {
         const p = positionRef.current;
-        const r = rotationRef.current;
+        const r = rotationSliderRef.current;
         const strength = tiltStrengthRef.current;
         const tiltX = sm.y * strength;
         const tiltY = sm.x * strength;
@@ -334,11 +347,13 @@ export function HandModel(): JSX.Element {
         const floatX = Math.cos(timeRef.current * floatFrequency * 0.7) * floatAmplitude * 0.5;
         const floatZ = Math.sin(timeRef.current * floatFrequency * 1.3) * floatAmplitude * 0.3;
 
-        // Smooth scale transitions
-        const currentScale = model.scale.x;
-        const targetScale = MIN_SCALE + (1 - proximity) * (MAX_SCALE - MIN_SCALE);
-        const newScale = currentScale + (targetScale - currentScale) * SCALE_SMOOTHING;
-        model.scale.setScalar(newScale);
+        // Scale: base * slider * hover
+        const targetHoverScale = MIN_SCALE + (1 - proximity) * (MAX_SCALE - MIN_SCALE);
+        const baseScale = baseScaleRef.current;
+        const scaleMult = scaleSliderRef.current;
+        const currentHover = model.scale.x / (baseScale * scaleMult);
+        const newHover = currentHover + (targetHoverScale - currentHover) * SCALE_SMOOTHING;
+        model.scale.setScalar(baseScale * scaleMult * newHover);
 
         // Reduced look-at effect to be very subtle
         const lookAtStrength = (1 - proximity) * 0.05; // Max 0.05 radians rotation (half of before)
@@ -379,9 +394,82 @@ export function HandModel(): JSX.Element {
     };
   }, []);
 
+  const onRotationChange = (axis: 'x' | 'y' | 'z', valueDeg: number): void => {
+    const rad = (valueDeg * Math.PI) / 180;
+    setRotationDeg((prev) => ({ ...prev, [axis]: valueDeg }));
+    rotationSliderRef.current = { ...rotationSliderRef.current, [axis]: rad };
+  };
+
+  const onScaleChange = (value: number): void => {
+    setScale(value);
+    scaleSliderRef.current = value;
+  };
+
   return (
     <div className={`relative h-full w-full min-h-[200px] transition-all duration-300 ease-out model-container ${isHovered ? 'hover' : ''}`} aria-hidden="true">
       <div ref={containerRef} className="h-full w-full" />
+      <div className="absolute bottom-4 left-4 z-50 rounded-lg border border-blue-900/20 bg-white/90 p-3 shadow-sm backdrop-blur">
+        <p className="mb-2 text-xs font-medium uppercase tracking-wide text-blue-900/70">Model</p>
+        <div className="space-y-2">
+          <div>
+            <label className="mb-0.5 flex justify-between text-xs">
+              <span>Rotate X</span>
+              <span>{rotationDeg.x}°</span>
+            </label>
+            <input
+              type="range"
+              min={-180}
+              max={180}
+              value={rotationDeg.x}
+              onChange={(e) => onRotationChange('x', Number(e.target.value))}
+              className="h-1.5 w-32 accent-blue-900"
+            />
+          </div>
+          <div>
+            <label className="mb-0.5 flex justify-between text-xs">
+              <span>Rotate Y</span>
+              <span>{rotationDeg.y}°</span>
+            </label>
+            <input
+              type="range"
+              min={-180}
+              max={180}
+              value={rotationDeg.y}
+              onChange={(e) => onRotationChange('y', Number(e.target.value))}
+              className="h-1.5 w-32 accent-blue-900"
+            />
+          </div>
+          <div>
+            <label className="mb-0.5 flex justify-between text-xs">
+              <span>Rotate Z</span>
+              <span>{rotationDeg.z}°</span>
+            </label>
+            <input
+              type="range"
+              min={-180}
+              max={180}
+              value={rotationDeg.z}
+              onChange={(e) => onRotationChange('z', Number(e.target.value))}
+              className="h-1.5 w-32 accent-blue-900"
+            />
+          </div>
+          <div>
+            <label className="mb-0.5 flex justify-between text-xs">
+              <span>Scale</span>
+              <span>{scale.toFixed(1)}</span>
+            </label>
+            <input
+              type="range"
+              min={0.5}
+              max={3}
+              step={0.1}
+              value={scale}
+              onChange={(e) => onScaleChange(Number(e.target.value))}
+              className="h-1.5 w-32 accent-blue-900"
+            />
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
