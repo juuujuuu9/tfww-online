@@ -1,3 +1,11 @@
+/**
+ * COPY THIS ENTIRE FILE for the 3D scene.
+ * Project: Thoughtform Worldwide. Astro + React + Three.js (vanilla).
+ * Page: 3D hand lives in a fixed right panel (66vw × 100dvh). Background #E6EDF7.
+ * Model: /3d/masTer_hand.glb. Textures: /3d/TowelCotton001/*.png (towel cotton PBR).
+ * File in repo: src/components/HandModel.tsx
+ */
+
 import { useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
@@ -6,7 +14,6 @@ import { TextureLoader } from 'three';
 
 const GLB_PATH = '/3d/masTer_hand.glb';
 
-// Towel cotton texture paths
 const TEXTURE_BASE_PATH = '/3d/TowelCotton001';
 const TOWEL_TEXTURES = {
   color: `${TEXTURE_BASE_PATH}/TowelCotton001_COL_1K.png`,
@@ -16,17 +23,13 @@ const TOWEL_TEXTURES = {
   displacement: `${TEXTURE_BASE_PATH}/TowelCotton001_DISP_1K.png`
 };
 
-// Material: white base with strong form definition (normals, AO) so hand reads clearly
-const createLightMaterial = (textureLoader: TextureLoader) => {
+const createTowelCottonMaterial = (textureLoader: TextureLoader) => {
   const material = new THREE.MeshStandardMaterial({
     color: 0xffffff,
-    emissive: 0xeeeeee,
-    emissiveIntensity: 0.08, // Very low so lighting defines form, not a flat blob
-    roughness: 0.4,
-    metalness: 0.05,
+    roughness: 0.8,
+    metalness: 0.0,
   });
 
-  // Load color texture for surface detail
   textureLoader.load(
     TOWEL_TEXTURES.color,
     (texture) => {
@@ -35,14 +38,12 @@ const createLightMaterial = (textureLoader: TextureLoader) => {
       texture.wrapT = THREE.RepeatWrapping;
       texture.repeat.set(2, 2);
       material.map = texture;
-      material.mapIntensity = 0.85; // Strong enough to show fabric detail
       material.needsUpdate = true;
     },
     undefined,
     (error) => console.warn('Failed to load color texture:', error)
   );
 
-  // Load normal map — critical for fingers and surface definition
   textureLoader.load(
     TOWEL_TEXTURES.normal,
     (texture) => {
@@ -50,14 +51,12 @@ const createLightMaterial = (textureLoader: TextureLoader) => {
       texture.wrapT = THREE.RepeatWrapping;
       texture.repeat.set(2, 2);
       material.normalMap = texture;
-      material.normalScale = new THREE.Vector2(1.2, 1.2); // Slightly stronger to define form
       material.needsUpdate = true;
     },
     undefined,
     (error) => console.warn('Failed to load normal texture:', error)
   );
 
-  // Load roughness map
   textureLoader.load(
     TOWEL_TEXTURES.roughness,
     (texture) => {
@@ -71,7 +70,6 @@ const createLightMaterial = (textureLoader: TextureLoader) => {
     (error) => console.warn('Failed to load roughness texture:', error)
   );
 
-  // Load ambient occlusion map with reduced intensity for lighter appearance
   textureLoader.load(
     TOWEL_TEXTURES.ao,
     (texture) => {
@@ -79,7 +77,6 @@ const createLightMaterial = (textureLoader: TextureLoader) => {
       texture.wrapT = THREE.RepeatWrapping;
       texture.repeat.set(2, 2);
       material.aoMap = texture;
-      material.aoMapIntensity = 0.45; // Restore AO so fingers, knuckles and folds have definition
       material.needsUpdate = true;
     },
     undefined,
@@ -89,66 +86,45 @@ const createLightMaterial = (textureLoader: TextureLoader) => {
   return material;
 };
 
-// Keep the original towel cotton material function as fallback
-const createTowelCottonMaterial = createLightMaterial;
-
-// Simple placeholder geometry when GLB file is not available
 const createPlaceholderHand = (textureLoader: TextureLoader) => {
   const group = new THREE.Group();
-  
-  // Create lighter material for placeholder
-  const placeholderMaterial = createLightMaterial(textureLoader);
-  
-  // Create a simple hand-like shape using basic geometries
+  const placeholderMaterial = createTowelCottonMaterial(textureLoader);
   const palmGeometry = new THREE.BoxGeometry(0.8, 0.3, 0.1);
   const palm = new THREE.Mesh(palmGeometry, placeholderMaterial);
   palm.position.set(0, 0, 0);
   group.add(palm);
-  
-  // Fingers
   const fingerGeometry = new THREE.BoxGeometry(0.1, 0.6, 0.08);
-  
   for (let i = 0; i < 4; i++) {
     const finger = new THREE.Mesh(fingerGeometry, placeholderMaterial);
     finger.position.set(-0.3 + i * 0.2, 0.3, 0);
     finger.rotation.z = Math.PI * 0.1;
     group.add(finger);
   }
-  
-  // Thumb
   const thumbGeometry = new THREE.BoxGeometry(0.08, 0.4, 0.08);
   const thumb = new THREE.Mesh(thumbGeometry, placeholderMaterial);
   thumb.position.set(0.4, 0, 0);
   thumb.rotation.z = -Math.PI * 0.2;
   group.add(thumb);
-  
   return group;
 };
 
-const INIT_POS = { x: 0.10, y: -0.55, z: 0.65 };
-const INIT_ROT = { x: 0, y: -8 * Math.PI / 180, z: 0 };
-const INIT_SCALE = 0.9;
+const INIT_POS = { x: 0.10, y: -0.75, z: 0.65 };
+const INIT_ROT = { x: -1.34, y: 2.96, z: 0.11 };
 const RAD_TO_DEG = 180 / Math.PI;
-
-/** Max rotation (radians) when cursor is at edge; rest state. */
 const CURSOR_TILT_STRENGTH = 0.12;
-/** Tilt strength while user is dragging the hand. */
 const DRAG_TILT_STRENGTH = 0.4;
 const CURSOR_LERP = 0.08;
-/** Tighter follow while dragging. */
 const DRAG_LERP = 0.18;
 const TILT_STRENGTH_LERP = 0.12;
-
-/** Floating animation constants */
 const FLOAT_AMPLITUDE = 0.08;
 const FLOAT_FREQUENCY = 0.003;
-const HOVER_FLOAT_AMPLITUDE = 0.08; // Same as normal, no extra floating when hovered
-const HOVER_FLOAT_FREQUENCY = 0.004; // Slightly slower frequency when hovered
-const PROXIMITY_THRESHOLD = 400; // Increased threshold for wider hover area
-const PROXIMITY_SMOOTHING = 0.03; // Even slower smoothing for steadier transitions
+const HOVER_FLOAT_AMPLITUDE = 0.08;
+const HOVER_FLOAT_FREQUENCY = 0.004;
+const PROXIMITY_THRESHOLD = 400;
+const PROXIMITY_SMOOTHING = 0.03;
 const MIN_SCALE = 1.0;
-const MAX_SCALE = 1.01; // Minimal scale effect (1%)
-const SCALE_SMOOTHING = 0.02; // Very slow scale transitions
+const MAX_SCALE = 1.01;
+const SCALE_SMOOTHING = 0.02;
 
 export function HandModel(): JSX.Element {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -157,25 +133,20 @@ export function HandModel(): JSX.Element {
   const positionRef = useRef(INIT_POS);
   const rotationRef = useRef(INIT_ROT);
   const rotationSliderRef = useRef({ ...INIT_ROT });
-  const scaleSliderRef = useRef(INIT_SCALE);
-  const positionYSliderRef = useRef(-0.55);
-
+  const scaleSliderRef = useRef(1);
   const [rotationDeg, setRotationDeg] = useState({
     x: Math.round(INIT_ROT.x * RAD_TO_DEG),
     y: Math.round(INIT_ROT.y * RAD_TO_DEG),
     z: Math.round(INIT_ROT.z * RAD_TO_DEG)
   });
-  const [scale, setScale] = useState(INIT_SCALE);
-  const [positionY, setPositionY] = useState(-0.55);
-  /** Normalized cursor from viewport center: -1..1, (0,0) = center. */
+  const [scale, setScale] = useState(1);
   const cursorRef = useRef({ x: 0, y: 0 });
   const cursorSmoothedRef = useRef({ x: 0, y: 0 });
   const isDraggingRef = useRef(false);
   const tiltStrengthRef = useRef(CURSOR_TILT_STRENGTH);
-  const mouseProximityRef = useRef(1); // 0 = very close, 1 = far away
-  const mouseProximitySmoothedRef = useRef(1); // Smoothed version
+  const mouseProximityRef = useRef(1);
+  const mouseProximitySmoothedRef = useRef(1);
   const timeRef = useRef(0);
-
   const [isHovered, setIsHovered] = useState(false);
 
   useEffect(() => {
@@ -193,9 +164,7 @@ export function HandModel(): JSX.Element {
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    renderer.toneMappingExposure = 1.6; // Balanced so we keep detail, not blown-out blob
-    renderer.shadowMap.enabled = true;
-    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    renderer.toneMappingExposure = 1.5;
     container.appendChild(renderer.domElement);
 
     const controls = new OrbitControls(camera, renderer.domElement);
@@ -209,43 +178,36 @@ export function HandModel(): JSX.Element {
     const textureLoader = new TextureLoader();
     const TARGET_SIZE = 1.8;
 
+    const processModel = (model: THREE.Group, texLoader: TextureLoader): THREE.Group => {
+      model.traverse((child) => {
+        if ((child as THREE.Mesh).isMesh) {
+          const mesh = child as THREE.Mesh;
+          const mat = Array.isArray(mesh.material) ? mesh.material[0] : mesh.material;
+          if (mat?.name === 'Material__350') {
+            mesh.visible = false;
+            return;
+          }
+          mesh.material = createTowelCottonMaterial(texLoader);
+          mesh.castShadow = true;
+          mesh.receiveShadow = true;
+        }
+      });
+      const box = new THREE.Box3().setFromObject(model);
+      const center = box.getCenter(new THREE.Vector3());
+      model.position.sub(center);
+      const size = new THREE.Vector3();
+      box.getSize(size);
+      const maxDim = Math.max(size.x, size.y, size.z, 0.001);
+      const baseScale = TARGET_SIZE / maxDim;
+      baseScaleRef.current = baseScale;
+      model.scale.setScalar(baseScale);
+      return model;
+    };
+
     loader.load(
       GLB_PATH,
       (gltf) => {
-        const model = gltf.scene;
-        model.traverse((child) => {
-          if ((child as THREE.Mesh).isMesh) {
-            const mesh = child as THREE.Mesh;
-            const mat = Array.isArray(mesh.material) ? mesh.material[0] : mesh.material;
-
-            // Remove the bullet by material name
-            if (mat?.name === 'Material__350') {
-              mesh.visible = false;
-              mesh.geometry.dispose();
-              if (Array.isArray(mesh.material)) {
-                mesh.material.forEach((m) => m.dispose());
-              } else if (mesh.material) {
-                mesh.material.dispose();
-              }
-              return;
-            }
-
-            mesh.castShadow = true;
-            mesh.receiveShadow = true;
-          }
-        });
-
-        // Center and scale (only visible hand)
-        const box = new THREE.Box3().setFromObject(model);
-        const center = box.getCenter(new THREE.Vector3());
-        model.position.sub(center);
-        const size = new THREE.Vector3();
-        box.getSize(size);
-        const maxDim = Math.max(size.x, size.y, size.z, 0.001);
-        const baseScale = (TARGET_SIZE / maxDim) * INIT_SCALE;
-        baseScaleRef.current = baseScale;
-        model.scale.setScalar(baseScale);
-
+        const model = processModel(gltf.scene, textureLoader);
         modelRef.current = model;
         scene.add(model);
       },
@@ -256,64 +218,26 @@ export function HandModel(): JSX.Element {
         const box = new THREE.Box3().setFromObject(placeholderModel);
         const center = box.getCenter(new THREE.Vector3());
         placeholderModel.position.sub(center);
-        placeholderModel.scale.setScalar(INIT_SCALE);
         modelRef.current = placeholderModel;
-        baseScaleRef.current = INIT_SCALE;
+        baseScaleRef.current = 1;
         scene.add(placeholderModel);
       }
     );
 
-    // Moderate ambient — enough to keep it light, not so much that form disappears
-    const ambient = new THREE.AmbientLight(0xffffff, 0.85);
+    const ambient = new THREE.AmbientLight(0xffffff, 0.95);
     scene.add(ambient);
-    
-    // Key light from front-side to define fingers and palm
-    const key = new THREE.DirectionalLight(0xffffff, 1.1);
-    key.position.set(2, 1.5, 3);
+    const key = new THREE.DirectionalLight(0xffffff, 1.0);
+    key.position.set(2, 2, 3);
     scene.add(key);
-    
-    // Enhanced fill light to reduce harsh shadows
-    const fill = new THREE.DirectionalLight(0xffffff, 0.8);
+    const fill = new THREE.DirectionalLight(0xffffff, 0.6);
     fill.position.set(-1, 0.5, 2);
     scene.add(fill);
-    
-    // Stronger rim light from behind to highlight surface details
-    const rim = new THREE.DirectionalLight(0xffffff, 0.6);
+    const rim = new THREE.DirectionalLight(0xffffff, 0.4);
     rim.position.set(0, 0, -3);
     scene.add(rim);
-    
-    // Additional soft overhead light for even illumination
-    const overhead = new THREE.DirectionalLight(0xffffff, 0.4);
+    const overhead = new THREE.DirectionalLight(0xffffff, 0.3);
     overhead.position.set(0, 3, 0);
     scene.add(overhead);
-    
-    // Add subtle side fill light for better surface detail visibility
-    const sideFill = new THREE.DirectionalLight(0xffffff, 0.3);
-    sideFill.position.set(3, 0, 1);
-    scene.add(sideFill);
-
-    // Spotlight from above — adds top highlight without washing out form
-    const topSpotlight = new THREE.SpotLight(0xffffff, 1.2, 10, Math.PI / 6, 0.5, 1);
-    topSpotlight.position.set(0, 5, 0); // Directly above the model
-    topSpotlight.target.position.set(0, 0, 0); // Point at model center
-    topSpotlight.castShadow = true;
-    topSpotlight.shadow.mapSize.width = 1024;
-    topSpotlight.shadow.mapSize.height = 1024;
-    scene.add(topSpotlight);
-    scene.add(topSpotlight.target);
-
-    // Add a simple ground plane to catch shadows
-    const groundGeometry = new THREE.PlaneGeometry(10, 10);
-    const groundMaterial = new THREE.MeshLambertMaterial({ 
-      color: 0xffffff, 
-      transparent: true, 
-      opacity: 0.1 
-    });
-    const ground = new THREE.Mesh(groundGeometry, groundMaterial);
-    ground.rotation.x = -Math.PI / 2;
-    ground.position.y = -2;
-    ground.receiveShadow = true;
-    scene.add(ground);
 
     const centerX = (): number => window.innerWidth / 2;
     const centerY = (): number => window.innerHeight / 2;
@@ -323,18 +247,13 @@ export function HandModel(): JSX.Element {
       const nx = Math.max(-1, Math.min(1, (e.clientX - cx) / cx));
       const ny = Math.max(-1, Math.min(1, (e.clientY - cy) / cy));
       cursorRef.current = { x: nx, y: ny };
-
-      // Calculate mouse proximity to model center (right side of screen)
-      const modelCenterX = window.innerWidth * 0.75; // Model is in right 50% of screen
+      const modelCenterX = window.innerWidth * 0.75;
       const modelCenterY = window.innerHeight * 0.5;
       const distance = Math.sqrt(
         Math.pow(e.clientX - modelCenterX, 2) + Math.pow(e.clientY - modelCenterY, 2)
       );
-      // Normalize distance to 0-1 range (0 = very close, 1 = far away)
-      // Use a wider threshold and smoother curve
       const normalizedDistance = Math.min(1, Math.max(0, distance / PROXIMITY_THRESHOLD));
-      // Apply easing function for smoother transitions
-      const easedProximity = 1 - (1 - normalizedDistance) * (1 - normalizedDistance); // Quadratic ease-out
+      const easedProximity = 1 - (1 - normalizedDistance) * (1 - normalizedDistance);
       mouseProximityRef.current = easedProximity;
     };
     const onMouseDown = (): void => {
@@ -352,31 +271,23 @@ export function HandModel(): JSX.Element {
     let frameId: number;
     const animate = (): void => {
       frameId = requestAnimationFrame(animate);
-
       const dragging = isDraggingRef.current;
       const targetStrength = dragging ? DRAG_TILT_STRENGTH : CURSOR_TILT_STRENGTH;
       tiltStrengthRef.current += (targetStrength - tiltStrengthRef.current) * TILT_STRENGTH_LERP;
-
       const cur = cursorRef.current;
       const sm = cursorSmoothedRef.current;
       const cursorLerp = dragging ? DRAG_LERP : CURSOR_LERP;
       sm.x += (cur.x - sm.x) * cursorLerp;
       sm.y += (cur.y - sm.y) * cursorLerp;
       cursorSmoothedRef.current = sm;
-
-      // Smooth proximity changes very gradually
       const currentProximity = mouseProximitySmoothedRef.current;
       const newProximity = currentProximity + (mouseProximityRef.current - currentProximity) * PROXIMITY_SMOOTHING;
       mouseProximitySmoothedRef.current = newProximity;
-
-      // Update hover state for CSS effects
-      const isNear = newProximity < 0.8; // Consider "hovered" when proximity is less than 80%
+      const isNear = newProximity < 0.8;
       if (isNear !== isHovered) {
         setIsHovered(isNear);
       }
-
-      // Update time for floating animation
-      timeRef.current += 16; // Approximate 60fps frame time
+      timeRef.current += 16;
 
       const model = modelRef.current;
       if (model) {
@@ -385,31 +296,22 @@ export function HandModel(): JSX.Element {
         const strength = tiltStrengthRef.current;
         const tiltX = sm.y * strength;
         const tiltY = sm.x * strength;
-
-        // Use smoothed proximity for all effects
-        const proximity = newProximity; // 0 = close, 1 = far
+        const proximity = newProximity;
         const floatAmplitude = FLOAT_AMPLITUDE + (1 - proximity) * (HOVER_FLOAT_AMPLITUDE - FLOAT_AMPLITUDE);
         const floatFrequency = FLOAT_FREQUENCY + (1 - proximity) * (HOVER_FLOAT_FREQUENCY - FLOAT_FREQUENCY);
-        
-        // Add subtle floating motion
         const floatY = Math.sin(timeRef.current * floatFrequency) * floatAmplitude;
         const floatX = Math.cos(timeRef.current * floatFrequency * 0.7) * floatAmplitude * 0.5;
         const floatZ = Math.sin(timeRef.current * floatFrequency * 1.3) * floatAmplitude * 0.3;
-
-        // Scale: base * slider * hover
         const targetHoverScale = MIN_SCALE + (1 - proximity) * (MAX_SCALE - MIN_SCALE);
         const baseScale = baseScaleRef.current;
         const scaleMult = scaleSliderRef.current;
         const currentHover = model.scale.x / (baseScale * scaleMult);
         const newHover = currentHover + (targetHoverScale - currentHover) * SCALE_SMOOTHING;
         model.scale.setScalar(baseScale * scaleMult * newHover);
-
-        // Reduced look-at effect to be very subtle
-        const lookAtStrength = (1 - proximity) * 0.05; // Max 0.05 radians rotation (half of before)
+        const lookAtStrength = (1 - proximity) * 0.05;
         const lookAtX = sm.y * lookAtStrength;
         const lookAtY = sm.x * lookAtStrength;
-
-        model.position.set(p.x, positionYSliderRef.current + floatY, p.z + floatZ);
+        model.position.set(p.x + floatX, p.y + floatY, p.z + floatZ);
         model.rotation.set(r.x + tiltX + lookAtX, r.y + tiltY + lookAtY, r.z);
       }
 
@@ -452,11 +354,6 @@ export function HandModel(): JSX.Element {
   const onScaleChange = (value: number): void => {
     setScale(value);
     scaleSliderRef.current = value;
-  };
-
-  const onPositionYChange = (value: number): void => {
-    setPositionY(value);
-    positionYSliderRef.current = value;
   };
 
   return (
@@ -519,21 +416,6 @@ export function HandModel(): JSX.Element {
               step={0.1}
               value={scale}
               onChange={(e) => onScaleChange(Number(e.target.value))}
-              className="h-1.5 w-32 accent-blue-900"
-            />
-          </div>
-          <div>
-            <label className="mb-0.5 flex justify-between text-xs">
-              <span>Vertical Position</span>
-              <span>{positionY.toFixed(2)}</span>
-            </label>
-            <input
-              type="range"
-              min={-2}
-              max={2}
-              step={0.05}
-              value={positionY}
-              onChange={(e) => onPositionYChange(Number(e.target.value))}
               className="h-1.5 w-32 accent-blue-900"
             />
           </div>
