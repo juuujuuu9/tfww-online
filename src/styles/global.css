@@ -26,11 +26,15 @@ html {
   font-size: 110%;
 }
 
-/* Floating hover effects for 3D model */
-.model-container {
-  transition: filter 0.5s ease-out;
+/* 3D model container - no hover effects, only subtle cursor following */
+
+/* Shake animation for access denied effect */
+@keyframes shake-access-denied {
+  0%, 100% { transform: translateX(0); }
+  10%, 30%, 50%, 70%, 90% { transform: translateX(-2px); }
+  20%, 40%, 60%, 80% { transform: translateX(2px); }
 }
 
-.model-container:hover {
-  filter: drop-shadow(0 0 15px rgba(30, 64, 175, 0.15));
+.model-container.shake {
+  animation: shake-access-denied 0.5s ease-in-out;
 }

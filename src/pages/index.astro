@@ -98,9 +98,9 @@ import { HandModel } from '../components/HandModel';
 				</div>
 			</footer>
 
-			<!-- 3D hand: right 66vw, full dvh, drag to rotate -->
+			<!-- 3D hand: right 66vw, full dvh, drag to rotate. z-25 so controls panel receives clicks above main content (z-20). -->
 			<div
-				class="pointer-events-none fixed right-0 top-0 z-0 h-[100dvh] w-[66vw]"
+				class="pointer-events-none fixed right-0 top-0 z-[25] h-[100dvh] w-[66vw]"
 				aria-hidden="true"
 			>
 				<div class="pointer-events-auto h-full w-full">

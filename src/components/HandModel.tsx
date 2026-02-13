@@ -3,6 +3,8 @@ import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { TextureLoader } from 'three';
+import { EffectComposer, EffectPass, RenderPass } from 'postprocessing';
+import { DitheringEffect } from './DitheringEffect';
 
 const GLB_PATH = '/3d/masTer_hand.glb';
 
@@ -142,15 +144,17 @@ const TILT_STRENGTH_LERP = 0.12;
 /** Floating animation constants */
 const FLOAT_AMPLITUDE = 0.08;
 const FLOAT_FREQUENCY = 0.003;
-const HOVER_FLOAT_AMPLITUDE = 0.08; // Same as normal, no extra floating when hovered
-const HOVER_FLOAT_FREQUENCY = 0.004; // Slightly slower frequency when hovered
-const PROXIMITY_THRESHOLD = 400; // Increased threshold for wider hover area
-const PROXIMITY_SMOOTHING = 0.03; // Even slower smoothing for steadier transitions
-const MIN_SCALE = 1.0;
-const MAX_SCALE = 1.01; // Minimal scale effect (1%)
-const SCALE_SMOOTHING = 0.02; // Very slow scale transitions
 
-export function HandModel(): JSX.Element {
+export type DitherColorOption = [number, number, number];
+
+export interface HandModelProps {
+  /** Dither dark pixel color [r,g,b] 0-1. Default: black. */
+  ditherColorDark?: DitherColorOption;
+  /** Dither light pixel color [r,g,b] 0-1, or omit to use scene color. */
+  ditherColorLight?: DitherColorOption | null;
+}
+
+export function HandModel({ ditherColorDark, ditherColorLight }: HandModelProps = {}): JSX.Element {
   const containerRef = useRef<HTMLDivElement>(null);
   const modelRef = useRef<THREE.Group | null>(null);
   const baseScaleRef = useRef(1);
@@ -172,11 +176,22 @@ export function HandModel(): JSX.Element {
   const cursorSmoothedRef = useRef({ x: 0, y: 0 });
   const isDraggingRef = useRef(false);
   const tiltStrengthRef = useRef(CURSOR_TILT_STRENGTH);
-  const mouseProximityRef = useRef(1); // 0 = very close, 1 = far away
-  const mouseProximitySmoothedRef = useRef(1); // Smoothed version
   const timeRef = useRef(0);
+  const shakeIntensityRef = useRef(0);
+  const isShakingRef = useRef(false);
+  const [isShaking, setIsShaking] = useState(false);
 
-  const [isHovered, setIsHovered] = useState(false);
+  // Dithering effect state
+  const [ditheringEnabled, setDitheringEnabled] = useState(true);
+  const [gridSize, setGridSize] = useState(4.0);
+  const [pixelSizeRatio, setPixelSizeRatio] = useState(1.0);
+  const [grayscaleOnly, setGrayscaleOnly] = useState(false);
+  const [colorDark, setColorDark] = useState<[number, number, number]>([0, 0, 0]);
+  const [useCustomLightColor, setUseCustomLightColor] = useState(false);
+  const [colorLight, setColorLight] = useState<[number, number, number]>([1, 1, 1]);
+  const ditheringEffectRef = useRef<DitheringEffect | null>(null);
+  const composerRef = useRef<EffectComposer | null>(null);
+
 
   useEffect(() => {
     const container = containerRef.current;
@@ -197,6 +212,29 @@ export function HandModel(): JSX.Element {
     renderer.shadowMap.enabled = true;
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     container.appendChild(renderer.domElement);
+
+    // Create effect composer with dithering effect
+    const composer = new EffectComposer(renderer);
+    composerRef.current = composer;
+    
+    // Add render pass
+    const renderPass = new RenderPass(scene, camera);
+    composer.addPass(renderPass);
+    
+    // Add dithering effect
+    const ditheringEffect = new DitheringEffect({
+      gridSize: 4.0,
+      pixelSizeRatio: 1.0,
+      grayscaleOnly: false,
+      ditheringEnabled: true,
+      colorDark: ditherColorDark ?? [0, 0, 0],
+      colorLight: ditherColorLight ?? undefined
+    });
+    ditheringEffect.setResolution(width, height);
+    ditheringEffectRef.current = ditheringEffect;
+
+    const effectPass = new EffectPass(camera, ditheringEffect);
+    composer.addPass(effectPass);
 
     const controls = new OrbitControls(camera, renderer.domElement);
     controls.enableDamping = true;
@@ -323,19 +361,6 @@ export function HandModel(): JSX.Element {
       const nx = Math.max(-1, Math.min(1, (e.clientX - cx) / cx));
       const ny = Math.max(-1, Math.min(1, (e.clientY - cy) / cy));
       cursorRef.current = { x: nx, y: ny };
-
-      // Calculate mouse proximity to model center (right side of screen)
-      const modelCenterX = window.innerWidth * 0.75; // Model is in right 50% of screen
-      const modelCenterY = window.innerHeight * 0.5;
-      const distance = Math.sqrt(
-        Math.pow(e.clientX - modelCenterX, 2) + Math.pow(e.clientY - modelCenterY, 2)
-      );
-      // Normalize distance to 0-1 range (0 = very close, 1 = far away)
-      // Use a wider threshold and smoother curve
-      const normalizedDistance = Math.min(1, Math.max(0, distance / PROXIMITY_THRESHOLD));
-      // Apply easing function for smoother transitions
-      const easedProximity = 1 - (1 - normalizedDistance) * (1 - normalizedDistance); // Quadratic ease-out
-      mouseProximityRef.current = easedProximity;
     };
     const onMouseDown = (): void => {
       isDraggingRef.current = true;
@@ -345,9 +370,16 @@ export function HandModel(): JSX.Element {
       isDraggingRef.current = false;
       controls.enabled = true;
     };
+    const onClick = (): void => {
+      // Trigger shake animation on click
+      isShakingRef.current = true;
+      shakeIntensityRef.current = 1;
+      setIsShaking(true);
+    };
     window.addEventListener('mousemove', onMouseMove);
     container.addEventListener('mousedown', onMouseDown);
     window.addEventListener('mouseup', onMouseUp);
+    container.addEventListener('click', onClick);
 
     let frameId: number;
     const animate = (): void => {
@@ -364,19 +396,18 @@ export function HandModel(): JSX.Element {
       sm.y += (cur.y - sm.y) * cursorLerp;
       cursorSmoothedRef.current = sm;
 
-      // Smooth proximity changes very gradually
-      const currentProximity = mouseProximitySmoothedRef.current;
-      const newProximity = currentProximity + (mouseProximityRef.current - currentProximity) * PROXIMITY_SMOOTHING;
-      mouseProximitySmoothedRef.current = newProximity;
-
-      // Update hover state for CSS effects
-      const isNear = newProximity < 0.8; // Consider "hovered" when proximity is less than 80%
-      if (isNear !== isHovered) {
-        setIsHovered(isNear);
-      }
-
       // Update time for floating animation
       timeRef.current += 16; // Approximate 60fps frame time
+
+      // Handle shake animation
+      if (isShakingRef.current) {
+        shakeIntensityRef.current *= 0.92; // Decay shake intensity
+        if (shakeIntensityRef.current < 0.01) {
+          isShakingRef.current = false;
+          shakeIntensityRef.current = 0;
+          setIsShaking(false);
+        }
+      }
 
       const model = modelRef.current;
       if (model) {
@@ -386,35 +417,33 @@ export function HandModel(): JSX.Element {
         const tiltX = sm.y * strength;
         const tiltY = sm.x * strength;
 
-        // Use smoothed proximity for all effects
-        const proximity = newProximity; // 0 = close, 1 = far
-        const floatAmplitude = FLOAT_AMPLITUDE + (1 - proximity) * (HOVER_FLOAT_AMPLITUDE - FLOAT_AMPLITUDE);
-        const floatFrequency = FLOAT_FREQUENCY + (1 - proximity) * (HOVER_FLOAT_FREQUENCY - FLOAT_FREQUENCY);
-        
         // Add subtle floating motion
-        const floatY = Math.sin(timeRef.current * floatFrequency) * floatAmplitude;
-        const floatX = Math.cos(timeRef.current * floatFrequency * 0.7) * floatAmplitude * 0.5;
-        const floatZ = Math.sin(timeRef.current * floatFrequency * 1.3) * floatAmplitude * 0.3;
+        const floatY = Math.sin(timeRef.current * FLOAT_FREQUENCY) * FLOAT_AMPLITUDE;
+        const floatX = Math.cos(timeRef.current * FLOAT_FREQUENCY * 0.7) * FLOAT_AMPLITUDE * 0.5;
+        const floatZ = Math.sin(timeRef.current * FLOAT_FREQUENCY * 1.3) * FLOAT_AMPLITUDE * 0.3;
 
-        // Scale: base * slider * hover
-        const targetHoverScale = MIN_SCALE + (1 - proximity) * (MAX_SCALE - MIN_SCALE);
+        // Add shake effect if active
+        let shakeX = 0, shakeY = 0, shakeZ = 0;
+        if (isShakingRef.current && shakeIntensityRef.current > 0) {
+          const shakeIntensity = shakeIntensityRef.current;
+          const shakeFrequency = 0.3; // Fast shake
+          const time = timeRef.current;
+          shakeX = (Math.sin(time * shakeFrequency * 8) * 0.02 + Math.sin(time * shakeFrequency * 13) * 0.015) * shakeIntensity;
+          shakeY = (Math.cos(time * shakeFrequency * 11) * 0.02 + Math.sin(time * shakeFrequency * 17) * 0.015) * shakeIntensity;
+          shakeZ = (Math.sin(time * shakeFrequency * 9) * 0.01 + Math.cos(time * shakeFrequency * 15) * 0.01) * shakeIntensity;
+        }
+
+        // Simple scale: base * slider only
         const baseScale = baseScaleRef.current;
         const scaleMult = scaleSliderRef.current;
-        const currentHover = model.scale.x / (baseScale * scaleMult);
-        const newHover = currentHover + (targetHoverScale - currentHover) * SCALE_SMOOTHING;
-        model.scale.setScalar(baseScale * scaleMult * newHover);
+        model.scale.setScalar(baseScale * scaleMult);
 
-        // Reduced look-at effect to be very subtle
-        const lookAtStrength = (1 - proximity) * 0.05; // Max 0.05 radians rotation (half of before)
-        const lookAtX = sm.y * lookAtStrength;
-        const lookAtY = sm.x * lookAtStrength;
-
-        model.position.set(p.x, positionYSliderRef.current + floatY, p.z + floatZ);
-        model.rotation.set(r.x + tiltX + lookAtX, r.y + tiltY + lookAtY, r.z);
+        model.position.set(p.x + floatX + shakeX, positionYSliderRef.current + floatY + shakeY, p.z + floatZ + shakeZ);
+        model.rotation.set(r.x + tiltX + shakeX * 2, r.y + tiltY + shakeY * 2, r.z + shakeZ * 3);
       }
 
       controls.update();
-      renderer.render(scene, camera);
+      composer.render();
     };
     animate();
 
@@ -425,17 +454,27 @@ export function HandModel(): JSX.Element {
       camera.aspect = w / h;
       camera.updateProjectionMatrix();
       renderer.setSize(w, h);
+      if (composerRef.current) {
+        composerRef.current.setSize(w, h);
+      }
+      // Update dithering resolution
+      if (ditheringEffectRef.current) {
+        ditheringEffectRef.current.setResolution(w, h);
+      }
     };
     window.addEventListener('resize', onResize);
 
     return () => {
-      modelRef.current = null;
       window.removeEventListener('mousemove', onMouseMove);
       container.removeEventListener('mousedown', onMouseDown);
       window.removeEventListener('mouseup', onMouseUp);
+      container.removeEventListener('click', onClick);
       window.removeEventListener('resize', onResize);
       cancelAnimationFrame(frameId);
       controls.dispose();
+      if (composerRef.current) {
+        composerRef.current.dispose();
+      }
       renderer.dispose();
       if (renderer.domElement.parentNode === container) {
         container.removeChild(renderer.domElement);
@@ -459,8 +498,52 @@ export function HandModel(): JSX.Element {
     positionYSliderRef.current = value;
   };
 
+  // Dithering control functions
+  const onDitheringEnabledChange = (enabled: boolean): void => {
+    setDitheringEnabled(enabled);
+    if (ditheringEffectRef.current) {
+      ditheringEffectRef.current.setDitheringEnabled(enabled);
+    }
+  };
+
+  const onGridSizeChange = (value: number): void => {
+    setGridSize(value);
+    if (ditheringEffectRef.current) {
+      ditheringEffectRef.current.setGridSize(value);
+    }
+  };
+
+  const onPixelSizeRatioChange = (value: number): void => {
+    setPixelSizeRatio(value);
+    if (ditheringEffectRef.current) {
+      ditheringEffectRef.current.setPixelSizeRatio(value);
+    }
+  };
+
+  const onGrayscaleOnlyChange = (grayscale: boolean): void => {
+    setGrayscaleOnly(grayscale);
+    if (ditheringEffectRef.current) {
+      ditheringEffectRef.current.setGrayscaleOnly(grayscale);
+    }
+  };
+
+  const onColorDarkChange = (rgb: [number, number, number]): void => {
+    setColorDark(rgb);
+    if (ditheringEffectRef.current) {
+      ditheringEffectRef.current.setColorDark(rgb);
+    }
+  };
+
+  const onColorLightChange = (rgb: [number, number, number] | null): void => {
+    setUseCustomLightColor(rgb != null);
+    if (rgb != null) setColorLight(rgb);
+    if (ditheringEffectRef.current) {
+      ditheringEffectRef.current.setColorLight(rgb ?? null);
+    }
+  };
+
   return (
-    <div className={`relative h-full w-full min-h-[200px] transition-all duration-300 ease-out model-container ${isHovered ? 'hover' : ''}`} aria-hidden="true">
+    <div className={`relative h-full w-full min-h-[200px] model-container ${isShaking ? 'shake' : ''}`} aria-hidden="true">
       <div ref={containerRef} className="h-full w-full" />
       <div className="absolute bottom-4 left-4 z-50 rounded-lg border border-blue-900/20 bg-white/90 p-3 shadow-sm backdrop-blur">
         <p className="mb-2 text-xs font-medium uppercase tracking-wide text-blue-900/70">Model</p>
@@ -536,6 +619,147 @@ export function HandModel(): JSX.Element {
               onChange={(e) => onPositionYChange(Number(e.target.value))}
               className="h-1.5 w-32 accent-blue-900"
             />
+          </div>
+        </div>
+        
+        {/* Dithering Controls */}
+        <div className="mt-3 pt-3 border-t border-blue-900/10">
+          <p className="mb-2 text-xs font-medium uppercase tracking-wide text-blue-900/70">Dithering</p>
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <label className="text-xs">Enable Dithering</label>
+              <button
+                type="button"
+                onClick={() => onDitheringEnabledChange(!ditheringEnabled)}
+                className={`relative h-4 w-8 rounded-full transition-colors ${
+                  ditheringEnabled ? 'bg-blue-900' : 'bg-gray-300'
+                }`}
+              >
+                <span
+                  className={`absolute left-0.5 top-0.5 h-3 w-3 rounded-full bg-white transition-transform ${
+                    ditheringEnabled ? 'translate-x-4' : 'translate-x-0'
+                  }`}
+                />
+              </button>
+            </div>
+            <div>
+              <label className="mb-0.5 flex justify-between text-xs">
+                <span>Grid Size</span>
+                <span>{gridSize.toFixed(1)}</span>
+              </label>
+              <input
+                type="range"
+                min={1}
+                max={20}
+                step={0.5}
+                value={gridSize}
+                onChange={(e) => onGridSizeChange(Number(e.target.value))}
+                className="h-1.5 w-32 accent-blue-900"
+                disabled={!ditheringEnabled}
+              />
+            </div>
+            <div>
+              <label className="mb-0.5 flex justify-between text-xs">
+                <span>Pixelation</span>
+                <span>{pixelSizeRatio.toFixed(1)}</span>
+              </label>
+              <input
+                type="range"
+                min={1}
+                max={10}
+                step={0.5}
+                value={pixelSizeRatio}
+                onChange={(e) => onPixelSizeRatioChange(Number(e.target.value))}
+                className="h-1.5 w-32 accent-blue-900"
+                disabled={!ditheringEnabled}
+              />
+            </div>
+            <div className="flex items-center justify-between">
+              <label className="text-xs">Grayscale</label>
+              <button
+                type="button"
+                onClick={() => onGrayscaleOnlyChange(!grayscaleOnly)}
+                disabled={!ditheringEnabled}
+                className={`relative h-4 w-8 rounded-full transition-colors ${
+                  grayscaleOnly ? 'bg-blue-900' : 'bg-gray-300'
+                } ${!ditheringEnabled ? 'cursor-not-allowed opacity-50' : ''}`}
+              >
+                <span
+                  className={`absolute left-0.5 top-0.5 h-3 w-3 rounded-full bg-white transition-transform ${
+                    grayscaleOnly ? 'translate-x-4' : 'translate-x-0'
+                  }`}
+                />
+              </button>
+            </div>
+            {/* Color controls */}
+            <div className="mt-2 space-y-1.5 border-t border-blue-900/10 pt-2">
+              <p className="text-[10px] font-medium uppercase tracking-wide text-blue-900/60">Colors</p>
+              <div>
+                <label className="mb-0.5 block text-xs">Dark (R,G,B)</label>
+                <div className="flex gap-1">
+                  {([0, 1, 2] as const).map((i) => (
+                    <input
+                      key={i}
+                      type="range"
+                      min={0}
+                      max={1}
+                      step={0.02}
+                      value={colorDark[i]}
+                      onChange={(e) => {
+                        const v = Number(e.target.value);
+                        const next: [number, number, number] = [...colorDark];
+                        next[i] = v;
+                        onColorDarkChange(next);
+                      }}
+                      disabled={!ditheringEnabled}
+                      className="h-1.5 flex-1 accent-blue-900"
+                    />
+                  ))}
+                </div>
+              </div>
+              <div className="flex items-center justify-between">
+                <label className="text-xs">Custom light</label>
+                <button
+                  type="button"
+                  onClick={() => onColorLightChange(useCustomLightColor ? null : [1, 1, 1])}
+                  disabled={!ditheringEnabled}
+                  className={`relative h-4 w-8 rounded-full transition-colors ${
+                    useCustomLightColor ? 'bg-blue-900' : 'bg-gray-300'
+                  } ${!ditheringEnabled ? 'cursor-not-allowed opacity-50' : ''}`}
+                >
+                  <span
+                    className={`absolute left-0.5 top-0.5 h-3 w-3 rounded-full bg-white transition-transform ${
+                      useCustomLightColor ? 'translate-x-4' : 'translate-x-0'
+                    }`}
+                  />
+                </button>
+              </div>
+              {useCustomLightColor && (
+                <div>
+                  <label className="mb-0.5 block text-xs">Light (R,G,B)</label>
+                  <div className="flex gap-1">
+                    {([0, 1, 2] as const).map((i) => (
+                      <input
+                        key={i}
+                        type="range"
+                        min={0}
+                        max={1}
+                        step={0.02}
+                        value={colorLight[i]}
+                        onChange={(e) => {
+                          const v = Number(e.target.value);
+                          const next: [number, number, number] = [...colorLight];
+                          next[i] = v;
+                          onColorLightChange(next);
+                        }}
+                        disabled={!ditheringEnabled}
+                        className="h-1.5 flex-1 accent-blue-900"
+                      />
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </div>
