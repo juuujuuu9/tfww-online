@@ -13,9 +13,9 @@ import { HandModel } from '../components/HandModel';
 		<title>Thoughtform Worldwide</title>
 	</head>
 	<body class="flex h-[100dvh] flex-col bg-[#E6EDF7] text-blue-900 antialiased">
-		<div class="relative mx-auto grid min-h-0 w-full flex-1 grid-rows-[auto_1fr_auto] px-6 py-6 pb-2 lg:px-6 z-30">
+		<div class="relative mx-auto grid min-h-0 w-full flex-1 grid-rows-[auto_1fr_auto] px-6 py-6 pb-2 lg:px-6">
 			<!-- Header -->
-			<header class="mb-4 flex items-center justify-between relative z-20">
+			<header class="mb-4 flex items-center justify-between relative z-30">
 				<a href="/" class="flex items-center gap-2">
 					<img src="/MasTer-Hand.png" alt="" class="h-16 w-auto object-contain" width="64" height="64" />
 					<span class="block text-2xl font-bold leading-none tracking-tight">
@@ -31,7 +31,7 @@ import { HandModel } from '../components/HandModel';
 			</header>
 
 			<!-- Main content -->
-			<main class="flex min-h-0 flex-col relative z-20">
+			<main class="flex min-h-0 flex-col relative z-30">
 				<div class="grid gap-12 lg:grid-cols-[1fr_auto] lg:items-center lg:gap-16">
 					<div>
 						<h1 class="text-2xl font-normal leading-[1.1] sm:text-5xl lg:text-7xl xl:text-8xl">
@@ -59,7 +59,7 @@ import { HandModel } from '../components/HandModel';
 			</main>
 
 			<!-- Footer -->
-			<footer class="flex flex-col gap-6 border-t border-blue-300/30 pt-3 sm:flex-row sm:items-center sm:justify-between relative z-20">
+			<footer class="flex flex-col gap-6 border-t border-blue-300/30 pt-3 sm:flex-row sm:items-center sm:justify-between relative z-30">
 				<div class="flex flex-wrap gap-x-8 gap-y-2">
 					<a href="mailto:julian@thoughtform.world" class="flex items-center gap-1 hover:underline">
 						<span>→</span>
@@ -98,9 +98,9 @@ import { HandModel } from '../components/HandModel';
 				</div>
 			</footer>
 
-			<!-- 3D hand: full viewport, drag to rotate. z-25 so controls panel receives clicks above main content (z-20). -->
+			<!-- 3D hand: full viewport, behind page content (z-10). Content is z-30 so it receives clicks. -->
 			<div
-				class="pointer-events-none fixed inset-0 z-[25] h-[100dvh] w-full"
+				class="pointer-events-none fixed inset-0 z-10 h-[100dvh] w-full"
 				aria-hidden="true"
 			>
 				<div class="pointer-events-auto h-full w-full">

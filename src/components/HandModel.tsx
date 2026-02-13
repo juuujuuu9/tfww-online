@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
@@ -209,7 +210,7 @@ export function HandModel({ ditherColorDark, ditherColorLight }: HandModelProps 
   // Draggable controls panel: position in px, start ~600px right of left edge
   const [panelPosition, setPanelPosition] = useState(() => ({
     x: 616,
-    y: Math.max(16, (typeof window !== 'undefined' ? window.innerHeight : 600) - 420) + 225
+    y: Math.max(16, (typeof window !== 'undefined' ? window.innerHeight : 600) - 420) + 225 - 300
   }));
   const dragStartRef = useRef<{ clientX: number; clientY: number; panelX: number; panelY: number } | null>(null);
 
@@ -710,10 +711,10 @@ export function HandModel({ ditherColorDark, ditherColorLight }: HandModelProps 
     e.preventDefault();
     const wrapper = panelWrapperRef.current;
     if (!wrapper) return;
-    const parent = wrapper.offsetParent as HTMLElement;
-    if (!parent) return;
     const wrapperRect = wrapper.getBoundingClientRect();
-    const parentRect = parent.getBoundingClientRect();
+    // Panel is portaled to body with position:fixed; use viewport as reference when offsetParent is null
+    const parent = wrapper.offsetParent as HTMLElement | null;
+    const parentRect = parent ? parent.getBoundingClientRect() : { left: 0, top: 0 };
     const panelX = wrapperRect.left - parentRect.left;
     const panelY = wrapperRect.top - parentRect.top;
     dragStartRef.current = {
@@ -740,45 +741,56 @@ export function HandModel({ ditherColorDark, ditherColorLight }: HandModelProps 
     window.addEventListener('mouseup', onUp);
   };
 
-  return (
-    <div className={`relative h-full w-full min-h-[200px] model-container ${isShaking ? 'shake' : ''}`} aria-hidden="true">
-      <div ref={containerRef} className="h-full w-full" />
+  const pathExpand =
+    'M16.417 10.283A7.917 7.917 0 1 1 8.5 2.366a7.916 7.916 0 0 1 7.917 7.917zm-6.804.01 3.032-3.033a.792.792 0 0 0-1.12-1.12L8.494 9.173 5.46 6.14a.792.792 0 0 0-1.12 1.12l3.034 3.033-3.033 3.033a.792.792 0 0 0 1.12 1.119l3.032-3.033 3.033 3.033a.792.792 0 0 0 1.12-1.12z';
+  const pathCollapse =
+    'M16.416 9.579A7.917 7.917 0 1 1 8.5 1.662a7.916 7.916 0 0 1 7.916 7.917zm-2.548-2.395a.792.792 0 0 0-1.12 0L8.5 11.433l-4.249-4.25a.792.792 0 0 0-1.12 1.12l4.809 4.809a.792.792 0 0 0 1.12 0l4.808-4.808a.792.792 0 0 0 0-1.12z';
+
+  const panelUI = (
+    <div
+      ref={panelWrapperRef}
+      className="fixed z-50 select-none"
+      style={{ left: panelPosition.x, top: panelPosition.y }}
+      aria-label="Controls"
+    >
       <div
-        ref={panelWrapperRef}
-        className="absolute z-50 select-none"
-        style={{ left: panelPosition.x, top: panelPosition.y }}
-        aria-label="Controls"
+        className={`grid cursor-grab grid-cols-[1fr_auto_1fr] items-center gap-2 rounded-t-md bg-[#1e3a8a]/90 px-1 py-0.5 active:cursor-grabbing ${barRoundedBottom ? 'rounded-b-md' : ''}`}
+        onMouseDown={handlePanelDragStart}
+        role="presentation"
       >
-        <div
-          className={`grid cursor-grab grid-cols-[1fr_auto_1fr] items-center gap-2 rounded-t-md bg-[#1e3a8a]/90 px-1 py-0.5 active:cursor-grabbing ${barRoundedBottom ? 'rounded-b-md' : ''}`}
-          onMouseDown={handlePanelDragStart}
-          role="presentation"
+        <span className="text-[#E6EDF7]/70" aria-hidden="true">⋮⋮</span>
+        <span className="font-mono uppercase text-xs font-medium text-[#E6EDF7]">Controls</span>
+        <button
+          type="button"
+          className="justify-self-end cursor-pointer rounded-md p-0.5 text-[#E6EDF7] hover:bg-white/15 focus:outline-none"
+          onMouseDown={(e) => e.stopPropagation()}
+          onClick={(e) => { e.stopPropagation(); handlePanelExpandToggle(); }}
+          aria-label={panelExpanded ? 'Collapse controls' : 'Expand controls'}
+          aria-expanded={panelExpanded}
         >
-          <span className="text-[#E6EDF7]/70" aria-hidden="true">⋮⋮</span>
-          <span className="font-mono uppercase text-xs font-medium text-[#E6EDF7]">Controls</span>
-          <button
-            type="button"
-            className="justify-self-end cursor-pointer rounded-md p-0.5 text-[#E6EDF7] hover:bg-white/15 focus:outline-none"
-            onMouseDown={(e) => e.stopPropagation()}
-            onClick={(e) => { e.stopPropagation(); handlePanelExpandToggle(); }}
-            aria-label={panelExpanded ? 'Collapse controls' : 'Expand controls'}
-            aria-expanded={panelExpanded}
-          >
-            <span aria-hidden="true">
-              {panelExpanded ? (
-                <svg fill="currentColor" viewBox="-1.7 0 20.4 20.4" xmlns="http://www.w3.org/2000/svg" className="size-4" aria-hidden>
-                  <path d="M16.417 10.283A7.917 7.917 0 1 1 8.5 2.366a7.916 7.916 0 0 1 7.917 7.917zm-6.804.01 3.032-3.033a.792.792 0 0 0-1.12-1.12L8.494 9.173 5.46 6.14a.792.792 0 0 0-1.12 1.12l3.034 3.033-3.033 3.033a.792.792 0 0 0 1.12 1.119l3.032-3.033 3.033 3.033a.792.792 0 0 0 1.12-1.12z" />
-                </svg>
-              ) : (
-                <svg fill="currentColor" viewBox="-1 0 19 19" xmlns="http://www.w3.org/2000/svg" className="size-4" aria-hidden>
-                  <path d="M16.416 9.579A7.917 7.917 0 1 1 8.5 1.662a7.916 7.916 0 0 1 7.916 7.917zm-2.548-2.395a.792.792 0 0 0-1.12 0L8.5 11.433l-4.249-4.25a.792.792 0 0 0-1.12 1.12l4.809 4.809a.792.792 0 0 0 1.12 0l4.808-4.808a.792.792 0 0 0 0-1.12z" />
-                </svg>
-              )}
-            </span>
-          </button>
-        </div>
-        <div ref={paneContainerRef} className="tweakpane-theme-invert" tabIndex={-1} />
+          <span aria-hidden="true">
+            {panelExpanded ? (
+              <svg fill="currentColor" viewBox="-1.7 0 20.4 20.4" xmlns="http://www.w3.org/2000/svg" className="size-4" aria-hidden>
+                <path d={pathExpand} />
+              </svg>
+            ) : (
+              <svg fill="currentColor" viewBox={"-1 0 19 19"} xmlns="http://www.w3.org/2000/svg" className="size-4" aria-hidden>
+                <path d={pathCollapse} />
+              </svg>
+            )}
+          </span>
+        </button>
       </div>
+      <div ref={paneContainerRef} className="tweakpane-theme-invert" tabIndex={-1} />
     </div>
+  );
+
+  return (
+    <>
+      <div className={`relative h-full w-full min-h-[200px] model-container ${isShaking ? 'shake' : ''}`} aria-hidden="true">
+        <div ref={containerRef} className="h-full w-full" />
+      </div>
+      {typeof document !== 'undefined' && createPortal(panelUI, document.body)}
+    </>
   );
 }
