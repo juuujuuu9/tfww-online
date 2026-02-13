@@ -384,24 +384,23 @@ export function HandModel({ ditherColorDark, ditherColorLight }: HandModelProps 
       const ny = Math.max(-1, Math.min(1, (e.clientY - cy) / cy));
       cursorRef.current = { x: nx, y: ny };
     };
+    const triggerShake = (): void => {
+      isShakingRef.current = true;
+      shakeIntensityRef.current = 1;
+      setIsShaking(true);
+    };
     const onMouseDown = (): void => {
       isDraggingRef.current = true;
       controls.enabled = false;
+      triggerShake();
     };
     const onMouseUp = (): void => {
       isDraggingRef.current = false;
       controls.enabled = true;
     };
-    const onClick = (): void => {
-      // Trigger shake animation on click
-      isShakingRef.current = true;
-      shakeIntensityRef.current = 1;
-      setIsShaking(true);
-    };
     window.addEventListener('mousemove', onMouseMove);
     container.addEventListener('mousedown', onMouseDown);
     window.addEventListener('mouseup', onMouseUp);
-    container.addEventListener('click', onClick);
 
     let frameId: number;
     const animate = (): void => {
@@ -490,7 +489,6 @@ export function HandModel({ ditherColorDark, ditherColorLight }: HandModelProps 
       window.removeEventListener('mousemove', onMouseMove);
       container.removeEventListener('mousedown', onMouseDown);
       window.removeEventListener('mouseup', onMouseUp);
-      container.removeEventListener('click', onClick);
       window.removeEventListener('resize', onResize);
       cancelAnimationFrame(frameId);
       controls.dispose();
