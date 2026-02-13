@@ -128,12 +128,12 @@ const createPlaceholderHand = (textureLoader: TextureLoader) => {
   return group;
 };
 
-/** Default dark dither color as RGB 0–1 (R 0, G 0, B 97) */
-const DEFAULT_DARK_RGB: [number, number, number] = [0, 0, 97 / 255];
-/** Default light dither color as RGB 0–1 (R 184, G 199, B 219) */
-const DEFAULT_LIGHT_RGB: [number, number, number] = [184 / 255, 199 / 255, 219 / 255];
+/** Default dark dither color as RGB 0–1 (#1e3a8a) */
+const DEFAULT_DARK_RGB: [number, number, number] = [30 / 255, 58 / 255, 138 / 255];
+/** Default light dither color as RGB 0–1 (#e6edf7) */
+const DEFAULT_LIGHT_RGB: [number, number, number] = [230 / 255, 237 / 255, 247 / 255];
 
-const INIT_POS = { x: 0.10, y: -0.55, z: 0.65 };
+const INIT_POS = { x: 0.55, y: -0.60, z: 0.65 };
 const INIT_ROT = { x: 0, y: -8 * Math.PI / 180, z: 0 };
 const INIT_SCALE = 0.9;
 const RAD_TO_DEG = 180 / Math.PI;
@@ -168,7 +168,8 @@ export function HandModel({ ditherColorDark, ditherColorLight }: HandModelProps 
   const rotationRef = useRef(INIT_ROT);
   const rotationSliderRef = useRef({ ...INIT_ROT });
   const scaleSliderRef = useRef(INIT_SCALE);
-  const positionYSliderRef = useRef(-0.55);
+  const positionYSliderRef = useRef(INIT_POS.y);
+  const positionXSliderRef = useRef(INIT_POS.x);
 
   const [rotationDeg, setRotationDeg] = useState({
     x: Math.round(INIT_ROT.x * RAD_TO_DEG),
@@ -176,7 +177,8 @@ export function HandModel({ ditherColorDark, ditherColorLight }: HandModelProps 
     z: Math.round(INIT_ROT.z * RAD_TO_DEG)
   });
   const [scale, setScale] = useState(INIT_SCALE);
-  const [positionY, setPositionY] = useState(-0.55);
+  const [positionX, setPositionX] = useState(INIT_POS.x);
+  const [positionY, setPositionY] = useState(INIT_POS.y);
   /** Normalized cursor from viewport center: -1..1, (0,0) = center. */
   const cursorRef = useRef({ x: 0, y: 0 });
   const cursorSmoothedRef = useRef({ x: 0, y: 0 });
@@ -457,7 +459,7 @@ export function HandModel({ ditherColorDark, ditherColorLight }: HandModelProps 
         const scaleMult = scaleSliderRef.current;
         model.scale.setScalar(baseScale * scaleMult);
 
-        model.position.set(p.x + floatX + shakeX, positionYSliderRef.current + floatY + shakeY, p.z + floatZ + shakeZ);
+        model.position.set(positionXSliderRef.current + floatX + shakeX, positionYSliderRef.current + floatY + shakeY, p.z + floatZ + shakeZ);
         model.rotation.set(r.x + tiltX + shakeX * 2, r.y + tiltY + shakeY * 2, r.z + shakeZ * 3);
       }
 
@@ -517,6 +519,11 @@ export function HandModel({ ditherColorDark, ditherColorLight }: HandModelProps 
     positionYSliderRef.current = value;
   };
 
+  const onPositionXChange = (value: number): void => {
+    setPositionX(value);
+    positionXSliderRef.current = value;
+  };
+
   // Dithering control functions
   const onDitheringEnabledChange = (enabled: boolean): void => {
     setDitheringEnabled(enabled);
@@ -574,6 +581,7 @@ export function HandModel({ ditherColorDark, ditherColorLight }: HandModelProps 
       rotationY: rotationDeg.y,
       rotationZ: rotationDeg.z,
       scale,
+      positionX,
       positionY,
       ditheringEnabled,
       gridSize,
@@ -601,6 +609,8 @@ export function HandModel({ ditherColorDark, ditherColorLight }: HandModelProps 
       .on('change', (ev) => onRotationChange('z', ev.value as number));
     modelFolder.addBinding(params, 'scale', { min: 0.5, max: 3, step: 0.1 })
       .on('change', (ev) => onScaleChange(ev.value as number));
+    modelFolder.addBinding(params, 'positionX', { min: -2, max: 2, step: 0.05, label: 'position X' })
+      .on('change', (ev) => onPositionXChange(ev.value as number));
     modelFolder.addBinding(params, 'positionY', { min: -2, max: 2, step: 0.05, label: 'position Y' })
       .on('change', (ev) => onPositionYChange(ev.value as number));
 

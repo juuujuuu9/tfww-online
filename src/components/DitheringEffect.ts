@@ -83,9 +83,9 @@ export class DitheringEffect extends Effect {
         color = vec3(luminance);
       }
       
-      // Apply dithering
+      // Apply dithering (when grayscale only, use luminance for light pixels so the toggle has visible effect)
       bool ditherValue = getValue(luminance, pixelatedCoord);
-      vec3 lightColor = useCustomLightColor ? colorLight : color;
+      vec3 lightColor = (useCustomLightColor && !grayscaleOnly) ? colorLight : color;
       vec3 finalColor = ditherValue ? lightColor : colorDark;
       
       // Apply color inversion if enabled
