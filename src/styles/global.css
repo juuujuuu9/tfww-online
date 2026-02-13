@@ -38,3 +38,40 @@ html {
 .model-container.shake {
   animation: shake-access-denied 0.5s ease-in-out;
 }
+
+/* Tweakpane theme: index text color = pane bg, index bg = pane text (match index.astro) */
+/* Pane and all expanding/rounded boxes: top corners flush (no radius) so they align with header */
+.tweakpane-theme-invert,
+.tweakpane-theme-invert * {
+  border-top-left-radius: 0 !important;
+  border-top-right-radius: 0 !important;
+}
+/* Pane root: bottom radius matches draggable bar (rounded-t-lg = 0.5rem) */
+.tweakpane-theme-invert > * {
+  border-bottom-left-radius: 0.5rem !important;
+  border-bottom-right-radius: 0.5rem !important;
+}
+.tweakpane-theme-invert {
+  --tp-base-border-radius: 0; /* flush corners with custom header */
+  --tp-base-background-color: #1e3a8a; /* blue-900, same as index text */
+  --tp-base-foreground-color: #E6EDF7; /* index bg */
+  --tp-container-background-color: rgba(30, 58, 138, 0.15);
+  --tp-container-background-color-hover: rgba(30, 58, 138, 0.25);
+  --tp-container-background-color-focus: rgba(30, 58, 138, 0.25);
+  --tp-container-background-color-active: rgba(30, 58, 138, 0.35);
+  --tp-container-foreground-color: #E6EDF7;
+  --tp-label-foreground-color: #E6EDF7;
+  --tp-input-background-color: rgba(230, 237, 247, 0.12);
+  --tp-input-background-color-hover: rgba(230, 237, 247, 0.18);
+  --tp-input-background-color-focus: rgba(230, 237, 247, 0.2);
+  --tp-input-background-color-active: rgba(230, 237, 247, 0.25);
+  --tp-input-foreground-color: #E6EDF7;
+  --tp-button-background-color: rgba(230, 237, 247, 0.25);
+  --tp-button-background-color-hover: rgba(230, 237, 247, 0.35);
+  --tp-button-background-color-focus: rgba(230, 237, 247, 0.4);
+  --tp-button-background-color-active: rgba(230, 237, 247, 0.5);
+  --tp-button-foreground-color: #1e3a8a;
+  --tp-monitor-background-color: rgba(0, 0, 0, 0.25);
+  --tp-monitor-foreground-color: #E6EDF7;
+  --tp-groove-foreground-color: rgba(230, 237, 247, 0.15);
+}

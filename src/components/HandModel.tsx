@@ -4,6 +4,7 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { TextureLoader } from 'three';
 import { EffectComposer, EffectPass, RenderPass } from 'postprocessing';
+import { Pane } from 'tweakpane';
 import { DitheringEffect } from './DitheringEffect';
 
 const GLB_PATH = '/3d/masTer_hand.glb';
@@ -127,6 +128,11 @@ const createPlaceholderHand = (textureLoader: TextureLoader) => {
   return group;
 };
 
+/** Default dark dither color as RGB 0–1 (R 0, G 0, B 97) */
+const DEFAULT_DARK_RGB: [number, number, number] = [0, 0, 97 / 255];
+/** Default light dither color as RGB 0–1 (R 184, G 199, B 219) */
+const DEFAULT_LIGHT_RGB: [number, number, number] = [184 / 255, 199 / 255, 219 / 255];
+
 const INIT_POS = { x: 0.10, y: -0.55, z: 0.65 };
 const INIT_ROT = { x: 0, y: -8 * Math.PI / 180, z: 0 };
 const INIT_SCALE = 0.9;
@@ -180,17 +186,30 @@ export function HandModel({ ditherColorDark, ditherColorLight }: HandModelProps 
   const shakeIntensityRef = useRef(0);
   const isShakingRef = useRef(false);
   const [isShaking, setIsShaking] = useState(false);
+  const [panelExpanded, setPanelExpanded] = useState(true);
+  /** True when tray has fully collapsed (after Tweakpane’s ~200ms animation). */
+  const [barRoundedBottom, setBarRoundedBottom] = useState(false);
+  const collapseTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Dithering effect state
   const [ditheringEnabled, setDitheringEnabled] = useState(true);
-  const [gridSize, setGridSize] = useState(4.0);
+  const [gridSize, setGridSize] = useState(2.0);
   const [pixelSizeRatio, setPixelSizeRatio] = useState(1.0);
   const [grayscaleOnly, setGrayscaleOnly] = useState(false);
-  const [colorDark, setColorDark] = useState<[number, number, number]>([0, 0, 0]);
-  const [useCustomLightColor, setUseCustomLightColor] = useState(false);
-  const [colorLight, setColorLight] = useState<[number, number, number]>([1, 1, 1]);
+  const [colorDark, setColorDark] = useState<[number, number, number]>(() => ditherColorDark ?? DEFAULT_DARK_RGB);
+  const [useCustomLightColor, setUseCustomLightColor] = useState(true);
+  const [colorLight, setColorLight] = useState<[number, number, number]>(DEFAULT_LIGHT_RGB);
   const ditheringEffectRef = useRef<DitheringEffect | null>(null);
   const composerRef = useRef<EffectComposer | null>(null);
+  const paneContainerRef = useRef<HTMLDivElement>(null);
+  const paneRef = useRef<Pane | null>(null);
+
+  // Draggable controls panel: position in px, start near bottom-left
+  const [panelPosition, setPanelPosition] = useState(() => ({
+    x: 16,
+    y: Math.max(16, (typeof window !== 'undefined' ? window.innerHeight : 600) - 420) + 225
+  }));
+  const dragStartRef = useRef<{ clientX: number; clientY: number; panelX: number; panelY: number } | null>(null);
 
 
   useEffect(() => {
@@ -223,12 +242,12 @@ export function HandModel({ ditherColorDark, ditherColorLight }: HandModelProps 
     
     // Add dithering effect
     const ditheringEffect = new DitheringEffect({
-      gridSize: 4.0,
+      gridSize: 2.0,
       pixelSizeRatio: 1.0,
       grayscaleOnly: false,
       ditheringEnabled: true,
-      colorDark: ditherColorDark ?? [0, 0, 0],
-      colorLight: ditherColorLight ?? undefined
+      colorDark: ditherColorDark ?? DEFAULT_DARK_RGB,
+      colorLight: ditherColorLight ?? (useCustomLightColor ? DEFAULT_LIGHT_RGB : undefined)
     });
     ditheringEffect.setResolution(width, height);
     ditheringEffectRef.current = ditheringEffect;
@@ -542,226 +561,168 @@ export function HandModel({ ditherColorDark, ditherColorLight }: HandModelProps 
     }
   };
 
+  // Tweakpane: create once on mount, dispose on unmount
+  useEffect(() => {
+    const container = paneContainerRef.current;
+    if (!container) return;
+
+    const pane = new Pane({ container, expanded: true }); // No title: we use our own combined header
+    paneRef.current = pane;
+
+    const params = {
+      rotationX: rotationDeg.x,
+      rotationY: rotationDeg.y,
+      rotationZ: rotationDeg.z,
+      scale,
+      positionY,
+      ditheringEnabled,
+      gridSize,
+      pixelSizeRatio,
+      grayscaleOnly,
+      colorDark: {
+        r: Math.round(colorDark[0] * 255),
+        g: Math.round(colorDark[1] * 255),
+        b: Math.round(colorDark[2] * 255)
+      },
+      useCustomLight: useCustomLightColor,
+      colorLight: {
+        r: Math.round(colorLight[0] * 255),
+        g: Math.round(colorLight[1] * 255),
+        b: Math.round(colorLight[2] * 255)
+      }
+    };
+
+    const modelFolder = pane.addFolder({ title: 'Model', expanded: true });
+    modelFolder.addBinding(params, 'rotationX', { min: -180, max: 180, step: 1, label: 'rotate X' })
+      .on('change', (ev) => onRotationChange('x', ev.value as number));
+    modelFolder.addBinding(params, 'rotationY', { min: -180, max: 180, step: 1, label: 'rotate Y' })
+      .on('change', (ev) => onRotationChange('y', ev.value as number));
+    modelFolder.addBinding(params, 'rotationZ', { min: -180, max: 180, step: 1, label: 'rotate Z' })
+      .on('change', (ev) => onRotationChange('z', ev.value as number));
+    modelFolder.addBinding(params, 'scale', { min: 0.5, max: 3, step: 0.1 })
+      .on('change', (ev) => onScaleChange(ev.value as number));
+    modelFolder.addBinding(params, 'positionY', { min: -2, max: 2, step: 0.05, label: 'position Y' })
+      .on('change', (ev) => onPositionYChange(ev.value as number));
+
+    const ditherFolder = pane.addFolder({ title: 'Dithering', expanded: true });
+    ditherFolder.addBinding(params, 'ditheringEnabled', { label: 'enabled' })
+      .on('change', (ev) => onDitheringEnabledChange(ev.value as boolean));
+    ditherFolder.addBinding(params, 'gridSize', { min: 1, max: 20, step: 0.5, label: 'grid size' })
+      .on('change', (ev) => onGridSizeChange(ev.value as number));
+    ditherFolder.addBinding(params, 'pixelSizeRatio', { min: 1, max: 10, step: 0.5, label: 'pixelation' })
+      .on('change', (ev) => onPixelSizeRatioChange(ev.value as number));
+    ditherFolder.addBinding(params, 'grayscaleOnly', { label: 'grayscale' })
+      .on('change', (ev) => onGrayscaleOnlyChange(ev.value as boolean));
+    ditherFolder.addBinding(params, 'colorDark', { label: 'dark' })
+      .on('change', (ev) => {
+        const c = ev.value as { r: number; g: number; b: number };
+        onColorDarkChange([c.r / 255, c.g / 255, c.b / 255]);
+      });
+    ditherFolder.addBinding(params, 'useCustomLight', { label: 'custom light' })
+      .on('change', (ev) => onColorLightChange((ev.value as boolean)
+        ? [params.colorLight.r / 255, params.colorLight.g / 255, params.colorLight.b / 255]
+        : null));
+    ditherFolder.addBinding(params, 'colorLight', { label: 'light' })
+      .on('change', (ev) => {
+        const c = ev.value as { r: number; g: number; b: number };
+        onColorLightChange([c.r / 255, c.g / 255, c.b / 255]);
+      });
+
+    return () => {
+      pane.dispose();
+      paneRef.current = null;
+    };
+  }, []); // Intentionally run once; pane drives refs/state via change handlers
+
+  const panelWrapperRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    return () => {
+      if (collapseTimeoutRef.current) clearTimeout(collapseTimeoutRef.current);
+    };
+  }, []);
+
+  const handlePanelExpandToggle = (): void => {
+    const next = !panelExpanded;
+    setPanelExpanded(next);
+    if (paneRef.current) paneRef.current.expanded = next;
+    if (collapseTimeoutRef.current) {
+      clearTimeout(collapseTimeoutRef.current);
+      collapseTimeoutRef.current = null;
+    }
+    if (next) {
+      setBarRoundedBottom(false);
+    } else {
+      collapseTimeoutRef.current = setTimeout(() => {
+        setBarRoundedBottom(true);
+        collapseTimeoutRef.current = null;
+      }, 220); // Slightly after Tweakpane’s 200ms height transition
+    }
+  };
+
+  const handlePanelDragStart = (e: React.MouseEvent): void => {
+    if (e.button !== 0) return;
+    e.preventDefault();
+    const wrapper = panelWrapperRef.current;
+    if (!wrapper) return;
+    const parent = wrapper.offsetParent as HTMLElement;
+    if (!parent) return;
+    const wrapperRect = wrapper.getBoundingClientRect();
+    const parentRect = parent.getBoundingClientRect();
+    const panelX = wrapperRect.left - parentRect.left;
+    const panelY = wrapperRect.top - parentRect.top;
+    dragStartRef.current = {
+      clientX: e.clientX,
+      clientY: e.clientY,
+      panelX,
+      panelY
+    };
+    const onMove = (e2: MouseEvent): void => {
+      if (!dragStartRef.current) return;
+      const dx = e2.clientX - dragStartRef.current.clientX;
+      const dy = e2.clientY - dragStartRef.current.clientY;
+      setPanelPosition({
+        x: dragStartRef.current.panelX + dx,
+        y: dragStartRef.current.panelY + dy
+      });
+    };
+    const onUp = (): void => {
+      dragStartRef.current = null;
+      window.removeEventListener('mousemove', onMove);
+      window.removeEventListener('mouseup', onUp);
+    };
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('mouseup', onUp);
+  };
+
   return (
     <div className={`relative h-full w-full min-h-[200px] model-container ${isShaking ? 'shake' : ''}`} aria-hidden="true">
       <div ref={containerRef} className="h-full w-full" />
-      <div className="absolute bottom-4 left-4 z-50 rounded-lg border border-blue-900/20 bg-white/90 p-3 shadow-sm backdrop-blur">
-        <p className="mb-2 text-xs font-medium uppercase tracking-wide text-blue-900/70">Model</p>
-        <div className="space-y-2">
-          <div>
-            <label className="mb-0.5 flex justify-between text-xs">
-              <span>Rotate X</span>
-              <span>{rotationDeg.x}°</span>
-            </label>
-            <input
-              type="range"
-              min={-180}
-              max={180}
-              value={rotationDeg.x}
-              onChange={(e) => onRotationChange('x', Number(e.target.value))}
-              className="h-1.5 w-32 accent-blue-900"
-            />
-          </div>
-          <div>
-            <label className="mb-0.5 flex justify-between text-xs">
-              <span>Rotate Y</span>
-              <span>{rotationDeg.y}°</span>
-            </label>
-            <input
-              type="range"
-              min={-180}
-              max={180}
-              value={rotationDeg.y}
-              onChange={(e) => onRotationChange('y', Number(e.target.value))}
-              className="h-1.5 w-32 accent-blue-900"
-            />
-          </div>
-          <div>
-            <label className="mb-0.5 flex justify-between text-xs">
-              <span>Rotate Z</span>
-              <span>{rotationDeg.z}°</span>
-            </label>
-            <input
-              type="range"
-              min={-180}
-              max={180}
-              value={rotationDeg.z}
-              onChange={(e) => onRotationChange('z', Number(e.target.value))}
-              className="h-1.5 w-32 accent-blue-900"
-            />
-          </div>
-          <div>
-            <label className="mb-0.5 flex justify-between text-xs">
-              <span>Scale</span>
-              <span>{scale.toFixed(1)}</span>
-            </label>
-            <input
-              type="range"
-              min={0.5}
-              max={3}
-              step={0.1}
-              value={scale}
-              onChange={(e) => onScaleChange(Number(e.target.value))}
-              className="h-1.5 w-32 accent-blue-900"
-            />
-          </div>
-          <div>
-            <label className="mb-0.5 flex justify-between text-xs">
-              <span>Vertical Position</span>
-              <span>{positionY.toFixed(2)}</span>
-            </label>
-            <input
-              type="range"
-              min={-2}
-              max={2}
-              step={0.05}
-              value={positionY}
-              onChange={(e) => onPositionYChange(Number(e.target.value))}
-              className="h-1.5 w-32 accent-blue-900"
-            />
-          </div>
+      <div
+        ref={panelWrapperRef}
+        className="absolute z-50 select-none"
+        style={{ left: panelPosition.x, top: panelPosition.y }}
+        aria-label="Controls"
+      >
+        <div
+          className={`grid cursor-grab grid-cols-[1fr_auto_1fr] items-center gap-2 rounded-t-lg border border-white/20 bg-[#1e3a8a] px-1 py-0.5 active:cursor-grabbing ${barRoundedBottom ? 'rounded-b-lg' : ''}`}
+          onMouseDown={handlePanelDragStart}
+          role="presentation"
+        >
+          <span className="text-[#E6EDF7]/70" aria-hidden="true">⋮⋮</span>
+          <span className="font-mono uppercase text-xs font-medium text-[#E6EDF7]">Controls</span>
+          <button
+            type="button"
+            className="justify-self-end cursor-pointer rounded p-0.5 text-[#E6EDF7] hover:bg-white/15 focus:outline-none focus:ring-2 focus:ring-white/40"
+            onMouseDown={(e) => e.stopPropagation()}
+            onClick={(e) => { e.stopPropagation(); handlePanelExpandToggle(); }}
+            aria-label={panelExpanded ? 'Collapse controls' : 'Expand controls'}
+            aria-expanded={panelExpanded}
+          >
+            <span aria-hidden="true">{panelExpanded ? '▼' : '▶'}</span>
+          </button>
         </div>
-        
-        {/* Dithering Controls */}
-        <div className="mt-3 pt-3 border-t border-blue-900/10">
-          <p className="mb-2 text-xs font-medium uppercase tracking-wide text-blue-900/70">Dithering</p>
-          <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <label className="text-xs">Enable Dithering</label>
-              <button
-                type="button"
-                onClick={() => onDitheringEnabledChange(!ditheringEnabled)}
-                className={`relative h-4 w-8 rounded-full transition-colors ${
-                  ditheringEnabled ? 'bg-blue-900' : 'bg-gray-300'
-                }`}
-              >
-                <span
-                  className={`absolute left-0.5 top-0.5 h-3 w-3 rounded-full bg-white transition-transform ${
-                    ditheringEnabled ? 'translate-x-4' : 'translate-x-0'
-                  }`}
-                />
-              </button>
-            </div>
-            <div>
-              <label className="mb-0.5 flex justify-between text-xs">
-                <span>Grid Size</span>
-                <span>{gridSize.toFixed(1)}</span>
-              </label>
-              <input
-                type="range"
-                min={1}
-                max={20}
-                step={0.5}
-                value={gridSize}
-                onChange={(e) => onGridSizeChange(Number(e.target.value))}
-                className="h-1.5 w-32 accent-blue-900"
-                disabled={!ditheringEnabled}
-              />
-            </div>
-            <div>
-              <label className="mb-0.5 flex justify-between text-xs">
-                <span>Pixelation</span>
-                <span>{pixelSizeRatio.toFixed(1)}</span>
-              </label>
-              <input
-                type="range"
-                min={1}
-                max={10}
-                step={0.5}
-                value={pixelSizeRatio}
-                onChange={(e) => onPixelSizeRatioChange(Number(e.target.value))}
-                className="h-1.5 w-32 accent-blue-900"
-                disabled={!ditheringEnabled}
-              />
-            </div>
-            <div className="flex items-center justify-between">
-              <label className="text-xs">Grayscale</label>
-              <button
-                type="button"
-                onClick={() => onGrayscaleOnlyChange(!grayscaleOnly)}
-                disabled={!ditheringEnabled}
-                className={`relative h-4 w-8 rounded-full transition-colors ${
-                  grayscaleOnly ? 'bg-blue-900' : 'bg-gray-300'
-                } ${!ditheringEnabled ? 'cursor-not-allowed opacity-50' : ''}`}
-              >
-                <span
-                  className={`absolute left-0.5 top-0.5 h-3 w-3 rounded-full bg-white transition-transform ${
-                    grayscaleOnly ? 'translate-x-4' : 'translate-x-0'
-                  }`}
-                />
-              </button>
-            </div>
-            {/* Color controls */}
-            <div className="mt-2 space-y-1.5 border-t border-blue-900/10 pt-2">
-              <p className="text-[10px] font-medium uppercase tracking-wide text-blue-900/60">Colors</p>
-              <div>
-                <label className="mb-0.5 block text-xs">Dark (R,G,B)</label>
-                <div className="flex gap-1">
-                  {([0, 1, 2] as const).map((i) => (
-                    <input
-                      key={i}
-                      type="range"
-                      min={0}
-                      max={1}
-                      step={0.02}
-                      value={colorDark[i]}
-                      onChange={(e) => {
-                        const v = Number(e.target.value);
-                        const next: [number, number, number] = [...colorDark];
-                        next[i] = v;
-                        onColorDarkChange(next);
-                      }}
-                      disabled={!ditheringEnabled}
-                      className="h-1.5 flex-1 accent-blue-900"
-                    />
-                  ))}
-                </div>
-              </div>
-              <div className="flex items-center justify-between">
-                <label className="text-xs">Custom light</label>
-                <button
-                  type="button"
-                  onClick={() => onColorLightChange(useCustomLightColor ? null : [1, 1, 1])}
-                  disabled={!ditheringEnabled}
-                  className={`relative h-4 w-8 rounded-full transition-colors ${
-                    useCustomLightColor ? 'bg-blue-900' : 'bg-gray-300'
-                  } ${!ditheringEnabled ? 'cursor-not-allowed opacity-50' : ''}`}
-                >
-                  <span
-                    className={`absolute left-0.5 top-0.5 h-3 w-3 rounded-full bg-white transition-transform ${
-                      useCustomLightColor ? 'translate-x-4' : 'translate-x-0'
-                    }`}
-                  />
-                </button>
-              </div>
-              {useCustomLightColor && (
-                <div>
-                  <label className="mb-0.5 block text-xs">Light (R,G,B)</label>
-                  <div className="flex gap-1">
-                    {([0, 1, 2] as const).map((i) => (
-                      <input
-                        key={i}
-                        type="range"
-                        min={0}
-                        max={1}
-                        step={0.02}
-                        value={colorLight[i]}
-                        onChange={(e) => {
-                          const v = Number(e.target.value);
-                          const next: [number, number, number] = [...colorLight];
-                          next[i] = v;
-                          onColorLightChange(next);
-                        }}
-                        disabled={!ditheringEnabled}
-                        className="h-1.5 flex-1 accent-blue-900"
-                      />
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
+        <div ref={paneContainerRef} className="tweakpane-theme-invert" />
       </div>
     </div>
   );
