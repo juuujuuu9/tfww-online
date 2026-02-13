@@ -128,8 +128,8 @@ const createPlaceholderHand = (textureLoader: TextureLoader) => {
   return group;
 };
 
-/** Default dark dither color as RGB 0–1 (#1e3a8a) */
-const DEFAULT_DARK_RGB: [number, number, number] = [30 / 255, 58 / 255, 138 / 255];
+/** Default dark dither color as RGB 0–1 (r: 0, g: 14, b: 57) */
+const DEFAULT_DARK_RGB: [number, number, number] = [0 / 255, 14 / 255, 57 / 255];
 /** Default custom light dither color as RGB 0–1 (r: 230, g: 237, b: 247) */
 const DEFAULT_LIGHT_RGB: [number, number, number] = [230 / 255, 237 / 255, 247 / 255];
 
@@ -646,10 +646,11 @@ export function HandModel({ ditherColorDark, ditherColorLight }: HandModelProps 
 
   const panelWrapperRef = useRef<HTMLDivElement>(null);
 
-  // Tweakpane color pickers: close on Enter (accept) and click outside
+  // Tweakpane color pickers: close on click outside the picker (and on Enter)
   useEffect(() => {
+    const pickerSelector = '.tp-popv';
     const isInsidePicker = (el: Element | null): boolean =>
-      !!el?.closest('.tp-popv');
+      !!el?.closest(pickerSelector);
 
     const handleKeydown = (e: KeyboardEvent): void => {
       if (e.key !== 'Enter') return;
@@ -661,9 +662,14 @@ export function HandModel({ ditherColorDark, ditherColorLight }: HandModelProps 
 
     const handleMousedown = (e: MouseEvent): void => {
       const target = e.target as Element;
-      const active = document.activeElement;
-      if (active && isInsidePicker(active) && !isInsidePicker(target)) {
-        (active as HTMLElement).blur();
+      if (isInsidePicker(target)) return;
+      const openPicker = document.querySelector(`${pickerSelector}.tp-popv-v`);
+      if (!openPicker) return;
+      const paneEl = paneContainerRef.current;
+      if (paneEl) {
+        paneEl.focus();
+      } else {
+        (document.activeElement as HTMLElement | null)?.blur();
       }
     };
 
@@ -771,7 +777,7 @@ export function HandModel({ ditherColorDark, ditherColorLight }: HandModelProps 
             </span>
           </button>
         </div>
-        <div ref={paneContainerRef} className="tweakpane-theme-invert" />
+        <div ref={paneContainerRef} className="tweakpane-theme-invert" tabIndex={-1} />
       </div>
     </div>
   );
