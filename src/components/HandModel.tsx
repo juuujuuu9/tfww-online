@@ -130,7 +130,7 @@ const createPlaceholderHand = (textureLoader: TextureLoader) => {
 
 /** Default dark dither color as RGB 0–1 (#1e3a8a) */
 const DEFAULT_DARK_RGB: [number, number, number] = [30 / 255, 58 / 255, 138 / 255];
-/** Default light dither color as RGB 0–1 (#e6edf7) */
+/** Default custom light dither color as RGB 0–1 (r: 230, g: 237, b: 247) */
 const DEFAULT_LIGHT_RGB: [number, number, number] = [230 / 255, 237 / 255, 247 / 255];
 
 const INIT_POS = { x: 0.55, y: -0.60, z: 0.65 };
@@ -206,9 +206,9 @@ export function HandModel({ ditherColorDark, ditherColorLight }: HandModelProps 
   const paneContainerRef = useRef<HTMLDivElement>(null);
   const paneRef = useRef<Pane | null>(null);
 
-  // Draggable controls panel: position in px, start near bottom-left
+  // Draggable controls panel: position in px, start ~600px right of left edge
   const [panelPosition, setPanelPosition] = useState(() => ({
-    x: 16,
+    x: 616,
     y: Math.max(16, (typeof window !== 'undefined' ? window.innerHeight : 600) - 420) + 225
   }));
   const dragStartRef = useRef<{ clientX: number; clientY: number; panelX: number; panelY: number } | null>(null);
@@ -646,6 +646,35 @@ export function HandModel({ ditherColorDark, ditherColorLight }: HandModelProps 
 
   const panelWrapperRef = useRef<HTMLDivElement>(null);
 
+  // Tweakpane color pickers: close on Enter (accept) and click outside
+  useEffect(() => {
+    const isInsidePicker = (el: Element | null): boolean =>
+      !!el?.closest('.tp-popv');
+
+    const handleKeydown = (e: KeyboardEvent): void => {
+      if (e.key !== 'Enter') return;
+      const active = document.activeElement;
+      if (active && isInsidePicker(active)) {
+        (active as HTMLElement).blur();
+      }
+    };
+
+    const handleMousedown = (e: MouseEvent): void => {
+      const target = e.target as Element;
+      const active = document.activeElement;
+      if (active && isInsidePicker(active) && !isInsidePicker(target)) {
+        (active as HTMLElement).blur();
+      }
+    };
+
+    document.addEventListener('keydown', handleKeydown, true);
+    document.addEventListener('mousedown', handleMousedown, true);
+    return () => {
+      document.removeEventListener('keydown', handleKeydown, true);
+      document.removeEventListener('mousedown', handleMousedown, true);
+    };
+  }, []);
+
   useEffect(() => {
     return () => {
       if (collapseTimeoutRef.current) clearTimeout(collapseTimeoutRef.current);
@@ -715,7 +744,7 @@ export function HandModel({ ditherColorDark, ditherColorLight }: HandModelProps 
         aria-label="Controls"
       >
         <div
-          className={`grid cursor-grab grid-cols-[1fr_auto_1fr] items-center gap-2 rounded-t-lg border border-white/20 bg-[#1e3a8a] px-1 py-0.5 active:cursor-grabbing ${barRoundedBottom ? 'rounded-b-lg' : ''}`}
+          className={`grid cursor-grab grid-cols-[1fr_auto_1fr] items-center gap-2 rounded-t-md bg-[#1e3a8a]/90 px-1 py-0.5 active:cursor-grabbing ${barRoundedBottom ? 'rounded-b-md' : ''}`}
           onMouseDown={handlePanelDragStart}
           role="presentation"
         >
@@ -723,13 +752,23 @@ export function HandModel({ ditherColorDark, ditherColorLight }: HandModelProps 
           <span className="font-mono uppercase text-xs font-medium text-[#E6EDF7]">Controls</span>
           <button
             type="button"
-            className="justify-self-end cursor-pointer rounded p-0.5 text-[#E6EDF7] hover:bg-white/15 focus:outline-none focus:ring-2 focus:ring-white/40"
+            className="justify-self-end cursor-pointer rounded-md p-0.5 text-[#E6EDF7] hover:bg-white/15 focus:outline-none"
             onMouseDown={(e) => e.stopPropagation()}
             onClick={(e) => { e.stopPropagation(); handlePanelExpandToggle(); }}
             aria-label={panelExpanded ? 'Collapse controls' : 'Expand controls'}
             aria-expanded={panelExpanded}
           >
-            <span aria-hidden="true">{panelExpanded ? '▼' : '▶'}</span>
+            <span aria-hidden="true">
+              {panelExpanded ? (
+                <svg fill="currentColor" viewBox="-1.7 0 20.4 20.4" xmlns="http://www.w3.org/2000/svg" className="size-4" aria-hidden>
+                  <path d="M16.417 10.283A7.917 7.917 0 1 1 8.5 2.366a7.916 7.916 0 0 1 7.917 7.917zm-6.804.01 3.032-3.033a.792.792 0 0 0-1.12-1.12L8.494 9.173 5.46 6.14a.792.792 0 0 0-1.12 1.12l3.034 3.033-3.033 3.033a.792.792 0 0 0 1.12 1.119l3.032-3.033 3.033 3.033a.792.792 0 0 0 1.12-1.12z" />
+                </svg>
+              ) : (
+                <svg fill="currentColor" viewBox="-1 0 19 19" xmlns="http://www.w3.org/2000/svg" className="size-4" aria-hidden>
+                  <path d="M16.416 9.579A7.917 7.917 0 1 1 8.5 1.662a7.916 7.916 0 0 1 7.916 7.917zm-2.548-2.395a.792.792 0 0 0-1.12 0L8.5 11.433l-4.249-4.25a.792.792 0 0 0-1.12 1.12l4.809 4.809a.792.792 0 0 0 1.12 0l4.808-4.808a.792.792 0 0 0 0-1.12z" />
+                </svg>
+              )}
+            </span>
           </button>
         </div>
         <div ref={paneContainerRef} className="tweakpane-theme-invert" />

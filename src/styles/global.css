@@ -46,19 +46,25 @@ html {
   border-top-left-radius: 0 !important;
   border-top-right-radius: 0 !important;
 }
-/* Pane root: bottom radius matches draggable bar (rounded-t-lg = 0.5rem) */
+/* Pane root: bottom radius matches page buttons (rounded-md = 0.375rem) */
 .tweakpane-theme-invert > * {
-  border-bottom-left-radius: 0.5rem !important;
-  border-bottom-right-radius: 0.5rem !important;
+  border-bottom-left-radius: 0.375rem !important;
+  border-bottom-right-radius: 0.375rem !important;
 }
+/* Controls bar + tray: one color, 90% opacity (10% transparent) */
 .tweakpane-theme-invert {
-  --tp-base-border-radius: 0; /* flush corners with custom header */
-  --tp-base-background-color: #1e3a8a; /* blue-900, same as index text */
+  background-color: rgba(30, 58, 138, 0.9);
+  border: none !important;
+  box-shadow: none !important;
+  outline: none !important;
+  --tp-base-border-radius: 0.375rem; /* match page buttons (rounded-md) */
+  --tp-base-shadow-color: transparent;
+  --tp-base-background-color: rgba(30, 58, 138, 0.9);
   --tp-base-foreground-color: #E6EDF7; /* index bg */
-  --tp-container-background-color: rgba(30, 58, 138, 0.15);
-  --tp-container-background-color-hover: rgba(30, 58, 138, 0.25);
-  --tp-container-background-color-focus: rgba(30, 58, 138, 0.25);
-  --tp-container-background-color-active: rgba(30, 58, 138, 0.35);
+  --tp-container-background-color: rgba(30, 58, 138, 0.9);
+  --tp-container-background-color-hover: rgba(30, 58, 138, 0.9);
+  --tp-container-background-color-focus: rgba(30, 58, 138, 0.9);
+  --tp-container-background-color-active: rgba(30, 58, 138, 0.9);
   --tp-container-foreground-color: #E6EDF7;
   --tp-label-foreground-color: #E6EDF7;
   --tp-input-background-color: rgba(230, 237, 247, 0.12);
@@ -74,4 +80,15 @@ html {
   --tp-monitor-background-color: rgba(0, 0, 0, 0.25);
   --tp-monitor-foreground-color: #E6EDF7;
   --tp-groove-foreground-color: rgba(230, 237, 247, 0.15);
+}
+
+/* Remove drop shadow from draggable pane root (Tweakpane .tp-rotv) */
+.tweakpane-theme-invert .tp-rotv {
+  box-shadow: none !important;
+}
+
+/* Light divider lines above and below Model / Dithering folder title rows */
+.tweakpane-theme-invert .tp-fldv > .tp-fldv_b {
+  border-top: 1px solid rgba(230, 237, 247, 0.25);
+  border-bottom: 1px solid rgba(230, 237, 247, 0.25);
 }
