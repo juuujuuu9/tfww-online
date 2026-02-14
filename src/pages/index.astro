@@ -16,10 +16,10 @@ import { HandModel } from '../components/HandModel';
 		<meta name="generator" content={Astro.generator} />
 		<title>Thoughtform Worldwide</title>
 	</head>
-	<body class="flex h-auto sm:h-[100dvh] flex-col bg-[#E6EDF7] text-blue-900 antialiased">
-		<div class="relative mx-auto grid w-full flex-none min-h-0 sm:flex-1 grid-rows-[auto_auto_auto] sm:grid-rows-[auto_1fr_auto] px-2 pt-4 pb-2 sm:px-6 pointer-events-none">
+	<body class="flex h-auto sm:h-[100dvh] flex-col bg-[#E6EDF7] text-blue-900 antialiased overflow-x-hidden">
+		<div class="relative mx-auto grid w-full flex-none min-h-0 sm:flex-1 grid-rows-[auto_auto_auto] sm:grid-rows-[auto_1fr_auto] pt-4 pb-2 pointer-events-none">
 			<!-- Header -->
-			<header class="mb-4 flex items-start justify-between relative z-30 pointer-events-auto">
+			<header class="mb-4 flex items-start justify-between relative z-30 pointer-events-auto px-2 sm:px-6">
 				<a href="/" class="flex items-center gap-2">
 					<img src="/MasTer-Hand.png" alt="" class="h-16 w-auto object-contain" width="64" height="64" />
 					<span class="block text-2xl font-bold leading-none tracking-tight">
@@ -36,7 +36,7 @@ import { HandModel } from '../components/HandModel';
 
 			<!-- Main content -->
 			<main class="flex min-h-0 flex-col relative z-30 pointer-events-none">
-				<div class="grid gap-12 lg:grid-cols-[1fr_auto] lg:items-center lg:gap-16 pointer-events-auto">
+				<div class="grid gap-12 lg:grid-cols-[1fr_auto] lg:items-center lg:gap-16 pointer-events-auto px-2 sm:px-6">
 					<div class="w-full">
 						<h1 class="w-full text-4xl font-normal leading-[1.1] sm:text-5xl lg:text-7xl xl:text-8xl">
 							<span class="sm:hidden">Modern solutions for the independent landscape.</span>
@@ -45,9 +45,9 @@ import { HandModel } from '../components/HandModel';
 					</div>
 				</div>
 
-				<!-- Mobile (< sm): square canvas in flow; sm+: fixed full viewport, spacer keeps layout -->
+				<!-- Mobile (< sm): square canvas full-width in flow; sm+: fixed full viewport, spacer keeps layout -->
 				<div
-					class="w-full aspect-square relative z-10 sm:fixed sm:inset-0 sm:aspect-auto sm:h-[100dvh] sm:w-full"
+					class="w-full aspect-square relative z-10 sm:fixed sm:inset-0 sm:aspect-auto sm:h-[115dvh] sm:w-full"
 					aria-hidden="true"
 				>
 					<div class="pointer-events-auto h-full w-full">
@@ -56,7 +56,7 @@ import { HandModel } from '../components/HandModel';
 				</div>
 				<div class="min-h-0 flex-1 pointer-events-none hidden sm:block" aria-hidden="true"></div>
 
-				<div class="max-w-2xl mb-6 pointer-events-auto">
+				<div class="max-w-2xl mb-3 sm:mb-6 pointer-events-auto px-2 sm:px-6">
 					<!-- <h2 class="mb-4 text-xl font-bold">
 						We built a studio that delivers the creative power your brand and team needs.
 					</h2> -->
@@ -73,7 +73,7 @@ import { HandModel } from '../components/HandModel';
 			</main>
 
 			<!-- Footer -->
-			<footer class="flex flex-col gap-2 border-t border-blue-300/30 pt-3 sm:flex-row sm:items-center sm:justify-between relative z-30 pointer-events-auto text-base sm:text-[1.5em]">
+			<footer class="flex flex-col gap-2 border-t border-blue-300/30 pt-3 sm:flex-row sm:items-center sm:justify-between relative z-30 pointer-events-auto text-base sm:text-[1.5em] px-2 sm:px-6">
 				<div class="order-3 sm:order-0 flex flex-wrap gap-x-8 gap-y-2 w-full sm:w-auto justify-center sm:justify-start">
 					<a href="mailto:julian@thoughtform.world" class="hidden sm:flex items-center gap-1 hover:underline">
 						<span>→</span>
