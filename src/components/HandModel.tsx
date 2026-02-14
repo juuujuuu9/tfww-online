@@ -148,7 +148,7 @@ const RAD_TO_DEG = 180 / Math.PI;
 /** Mobile (< sm) canvas defaults to match control panel preset (rotate 5/-8/0, scale 1, pos -0.10/-0.50, grid 1). */
 const MOBILE_ROT_DEG = { x: 5, y: -8, z: 0 };
 const MOBILE_SCALE = 1.0;
-const MOBILE_POS = { x: -0.10, y: -0.58 };
+const MOBILE_POS = { x: -0.13, y: -0.53 };
 const MOBILE_GRID_SIZE = 1.0;
 const isMobileViewport = (): boolean =>
   typeof window !== 'undefined' && window.innerWidth < 640;
@@ -332,6 +332,13 @@ export function HandModel({ ditherColorDark, ditherColorLight }: HandModelProps 
     controls.maxDistance = 8;
     controls.target.set(0, 0, 0);
 
+    // Mobile: no touch orbit so user can scroll through the canvas; allow vertical scroll (touch-action)
+    const isMobile = window.innerWidth < 640;
+    if (isMobile) {
+      controls.enabled = false;
+      renderer.domElement.style.touchAction = 'pan-y';
+    }
+
     const loader = new GLTFLoader();
     const textureLoader = new TextureLoader();
     const TARGET_SIZE = 1.8;
@@ -457,17 +464,27 @@ export function HandModel({ ditherColorDark, ditherColorLight }: HandModelProps 
       setIsShaking(true);
     };
     const onMouseDown = (): void => {
-      isDraggingRef.current = true;
-      controls.enabled = false;
       triggerShake();
+      if (!isMobile) {
+        isDraggingRef.current = true;
+        controls.enabled = false;
+      }
     };
     const onMouseUp = (): void => {
-      isDraggingRef.current = false;
-      controls.enabled = true;
+      if (!isMobile) {
+        isDraggingRef.current = false;
+        controls.enabled = true;
+      }
+    };
+    const onTouchStart = (): void => {
+      triggerShake();
     };
     window.addEventListener('mousemove', onMouseMove);
     container.addEventListener('mousedown', onMouseDown);
     window.addEventListener('mouseup', onMouseUp);
+    if (isMobile) {
+      container.addEventListener('touchstart', onTouchStart, { passive: true });
+    }
 
     let frameId: number;
     const animate = (): void => {
@@ -569,6 +586,9 @@ export function HandModel({ ditherColorDark, ditherColorLight }: HandModelProps 
       window.removeEventListener('mousemove', onMouseMove);
       container.removeEventListener('mousedown', onMouseDown);
       window.removeEventListener('mouseup', onMouseUp);
+      if (isMobile) {
+        container.removeEventListener('touchstart', onTouchStart);
+      }
       window.removeEventListener('resize', onResize);
       cancelAnimationFrame(frameId);
       controls.dispose();
@@ -868,7 +888,7 @@ export function HandModel({ ditherColorDark, ditherColorLight }: HandModelProps 
       <div className={`relative h-full w-full min-h-[200px] model-container ${isShaking ? 'shake' : ''}`} aria-hidden="true">
         <div ref={containerRef} className="h-full w-full" />
       </div>
-      {typeof document !== 'undefined' && createPortal(panelUI, panelPortalTarget ?? document.body)}
+      {typeof document !== 'undefined' && !isMobilePanel && createPortal(panelUI, panelPortalTarget ?? document.body)}
     </>
   );
 }
