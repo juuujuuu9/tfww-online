@@ -518,7 +518,7 @@ export function HandModel({ ditherColorDark, ditherColorLight }: HandModelProps 
       if (model) {
         const p = positionRef.current;
         const r = rotationSliderRef.current;
-        const strength = tiltStrengthRef.current;
+        const strength = isMobile ? 0 : tiltStrengthRef.current;
         const tiltX = sm.y * strength;
         const tiltY = sm.x * strength;
 
@@ -527,7 +527,7 @@ export function HandModel({ ditherColorDark, ditherColorLight }: HandModelProps 
         const floatX = Math.cos(timeRef.current * FLOAT_FREQUENCY * 0.7) * FLOAT_AMPLITUDE * 0.5;
         const floatZ = Math.sin(timeRef.current * FLOAT_FREQUENCY * 1.3) * FLOAT_AMPLITUDE * 0.3;
 
-        // Add shake effect if active
+        // Add shake effect if active (rotation only on mobile so position stays fixed)
         let shakeX = 0, shakeY = 0, shakeZ = 0;
         if (isShakingRef.current && shakeIntensityRef.current > 0) {
           const shakeIntensity = shakeIntensityRef.current;
@@ -537,13 +537,16 @@ export function HandModel({ ditherColorDark, ditherColorLight }: HandModelProps 
           shakeY = (Math.cos(time * shakeFrequency * 11) * 0.02 + Math.sin(time * shakeFrequency * 17) * 0.015) * shakeIntensity;
           shakeZ = (Math.sin(time * shakeFrequency * 9) * 0.01 + Math.cos(time * shakeFrequency * 15) * 0.01) * shakeIntensity;
         }
+        const shakePosX = isMobile ? 0 : shakeX;
+        const shakePosY = isMobile ? 0 : shakeY;
+        const shakePosZ = isMobile ? 0 : shakeZ;
 
         // Simple scale: base * slider only
         const baseScale = baseScaleRef.current;
         const scaleMult = scaleSliderRef.current;
         model.scale.setScalar(baseScale * scaleMult);
 
-        model.position.set(positionXSliderRef.current + floatX + shakeX, positionYSliderRef.current + floatY + shakeY, p.z + floatZ + shakeZ);
+        model.position.set(positionXSliderRef.current + floatX + shakePosX, positionYSliderRef.current + floatY + shakePosY, p.z + floatZ + shakePosZ);
         model.rotation.set(r.x + tiltX + shakeX * 2, r.y + tiltY + shakeY * 2, r.z + shakeZ * 3);
       }
 
