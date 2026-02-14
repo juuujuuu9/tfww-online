@@ -134,16 +134,24 @@ const DEFAULT_DARK_RGB: [number, number, number] = [0 / 255, 14 / 255, 57 / 255]
 /** Default custom light dither color as RGB 0–1 (r: 230, g: 237, b: 247) */
 const DEFAULT_LIGHT_RGB: [number, number, number] = [230 / 255, 237 / 255, 247 / 255];
 
-// Responsive default position: 0.35 for screens < 1280px, 0.55 for larger screens
+// Responsive default position: 0.35 for screens < 1280px, 0.55 for larger; y/z nudged down slightly
 const getDefaultPosition = () => {
   const isSmallScreen = typeof window !== 'undefined' && window.innerWidth < 1280;
-  return { x: isSmallScreen ? 0.35 : 0.55, y: -0.60, z: 0.65 };
+  return { x: isSmallScreen ? 0.35 : 0.55, y: -0.65, z: 0.58 };
 };
 
 const INIT_POS = getDefaultPosition();
 const INIT_ROT = { x: 0, y: -8 * Math.PI / 180, z: 0 };
 const INIT_SCALE = 0.9;
 const RAD_TO_DEG = 180 / Math.PI;
+
+/** Mobile (< sm) canvas defaults to match control panel preset (rotate 5/-8/0, scale 1, pos -0.10/-0.50, grid 1). */
+const MOBILE_ROT_DEG = { x: 5, y: -8, z: 0 };
+const MOBILE_SCALE = 1.0;
+const MOBILE_POS = { x: -0.10, y: -0.58 };
+const MOBILE_GRID_SIZE = 1.0;
+const isMobileViewport = (): boolean =>
+  typeof window !== 'undefined' && window.innerWidth < 640;
 
 /** Max rotation (radians) when cursor is at edge; rest state. */
 const CURSOR_TILT_STRENGTH = 0.12;
@@ -178,29 +186,46 @@ export function HandModel({ ditherColorDark, ditherColorLight }: HandModelProps 
   const positionYSliderRef = useRef(INIT_POS.y);
   const positionXSliderRef = useRef(INIT_POS.x);
   
-  // Initialize responsive position on mount
+  // Initialize responsive position and mobile canvas defaults on mount
   useEffect(() => {
-    const updateResponsivePosition = () => {
-      const isSmallScreen = window.innerWidth < 1280;
-      const defaultX = isSmallScreen ? 0.35 : 0.55;
-      positionXSliderRef.current = defaultX;
-      setPositionX(defaultX);
-    };
-    
-    updateResponsivePosition();
+    if (window.innerWidth < 640) {
+      const degToRad = (d: number) => (d * Math.PI) / 180;
+      rotationSliderRef.current = {
+        x: degToRad(MOBILE_ROT_DEG.x),
+        y: degToRad(MOBILE_ROT_DEG.y),
+        z: degToRad(MOBILE_ROT_DEG.z)
+      };
+      scaleSliderRef.current = MOBILE_SCALE;
+      positionXSliderRef.current = MOBILE_POS.x;
+      positionYSliderRef.current = MOBILE_POS.y;
+      return;
+    }
+    const isSmallScreen = window.innerWidth < 1280;
+    const defaultX = isSmallScreen ? 0.35 : 0.55;
+    positionXSliderRef.current = defaultX;
+    setPositionX(defaultX);
   }, []);
 
-  const [rotationDeg, setRotationDeg] = useState({
-    x: Math.round(INIT_ROT.x * RAD_TO_DEG),
-    y: Math.round(INIT_ROT.y * RAD_TO_DEG),
-    z: Math.round(INIT_ROT.z * RAD_TO_DEG)
-  });
-  const [scale, setScale] = useState(INIT_SCALE);
+  const [rotationDeg, setRotationDeg] = useState(() =>
+    isMobileViewport()
+      ? { ...MOBILE_ROT_DEG }
+      : {
+          x: Math.round(INIT_ROT.x * RAD_TO_DEG),
+          y: Math.round(INIT_ROT.y * RAD_TO_DEG),
+          z: Math.round(INIT_ROT.z * RAD_TO_DEG)
+        }
+  );
+  const [scale, setScale] = useState(() =>
+    isMobileViewport() ? MOBILE_SCALE : INIT_SCALE
+  );
   const [positionX, setPositionX] = useState(() => {
+    if (isMobileViewport()) return MOBILE_POS.x;
     const isSmallScreen = typeof window !== 'undefined' && window.innerWidth < 1280;
     return isSmallScreen ? 0.35 : 0.55;
   });
-  const [positionY, setPositionY] = useState(INIT_POS.y);
+  const [positionY, setPositionY] = useState(() =>
+    isMobileViewport() ? MOBILE_POS.y : INIT_POS.y
+  );
   /** Normalized cursor from viewport center: -1..1, (0,0) = center. */
   const cursorRef = useRef({ x: 0, y: 0 });
   const cursorSmoothedRef = useRef({ x: 0, y: 0 });
@@ -217,7 +242,9 @@ export function HandModel({ ditherColorDark, ditherColorLight }: HandModelProps 
 
   // Dithering effect state
   const [ditheringEnabled, setDitheringEnabled] = useState(true);
-  const [gridSize, setGridSize] = useState(2.0);
+  const [gridSize, setGridSize] = useState(() =>
+    isMobileViewport() ? MOBILE_GRID_SIZE : 2.0
+  );
   const [pixelSizeRatio, setPixelSizeRatio] = useState(1.0);
   const [grayscaleOnly, setGrayscaleOnly] = useState(false);
   const [colorDark, setColorDark] = useState<[number, number, number]>(() => ditherColorDark ?? DEFAULT_DARK_RGB);
@@ -228,12 +255,31 @@ export function HandModel({ ditherColorDark, ditherColorLight }: HandModelProps 
   const paneContainerRef = useRef<HTMLDivElement>(null);
   const paneRef = useRef<Pane | null>(null);
 
-  // Draggable controls panel: position in px, start ~600px right of left edge
+  // Draggable controls panel: position in px, start ~600px right of left edge (desktop only)
   const [panelPosition, setPanelPosition] = useState(() => ({
     x: 616,
     y: Math.max(16, (typeof window !== 'undefined' ? window.innerHeight : 600) - 420) + 225 - 300
   }));
   const dragStartRef = useRef<{ clientX: number; clientY: number; panelX: number; panelY: number } | null>(null);
+
+  // On < sm: portal panel into #mobile-control-pane-slot (above paragraph); otherwise portal to body (draggable).
+  // Must resolve target before first render so we never switch portal target after Tweakpane mounts (that would orphan it).
+  const [panelPortalTarget, setPanelPortalTarget] = useState<HTMLElement | null>(() => {
+    if (typeof document === 'undefined') return null;
+    const slot = document.getElementById('mobile-control-pane-slot');
+    return window.innerWidth < 640 && slot ? slot : document.body;
+  });
+  useEffect(() => {
+    const updateTarget = (): void => {
+      const slot = document.getElementById('mobile-control-pane-slot');
+      setPanelPortalTarget(
+        window.innerWidth < 640 && slot ? slot : document.body
+      );
+    };
+    window.addEventListener('resize', updateTarget);
+    return () => window.removeEventListener('resize', updateTarget);
+  }, []);
+  const isMobilePanel = panelPortalTarget?.id === 'mobile-control-pane-slot';
 
 
   useEffect(() => {
@@ -264,9 +310,9 @@ export function HandModel({ ditherColorDark, ditherColorLight }: HandModelProps 
     const renderPass = new RenderPass(scene, camera);
     composer.addPass(renderPass);
     
-    // Add dithering effect
+    // Add dithering effect (uses state so mobile gets gridSize 1.0, desktop 2.0)
     const ditheringEffect = new DitheringEffect({
-      gridSize: 2.0,
+      gridSize,
       pixelSizeRatio: 1.0,
       grayscaleOnly: false,
       ditheringEnabled: true,
@@ -781,13 +827,13 @@ export function HandModel({ ditherColorDark, ditherColorLight }: HandModelProps 
   const panelUI = (
     <div
       ref={panelWrapperRef}
-      className="fixed z-50 select-none"
-      style={{ left: panelPosition.x, top: panelPosition.y }}
+      className={isMobilePanel ? 'relative z-50 select-none w-full overflow-visible' : 'fixed z-50 select-none'}
+      style={isMobilePanel ? undefined : { left: panelPosition.x, top: panelPosition.y }}
       aria-label="Controls"
     >
       <div
-        className={`grid cursor-grab grid-cols-[1fr_auto_1fr] items-center gap-2 rounded-t-md bg-[#1e3a8a]/90 px-1 py-0.5 active:cursor-grabbing ${barRoundedBottom ? 'rounded-b-md' : ''}`}
-        onMouseDown={handlePanelDragStart}
+        className={`grid grid-cols-[1fr_auto_1fr] items-center gap-2 rounded-t-md bg-[#1e3a8a]/90 px-1 py-0.5 ${barRoundedBottom ? 'rounded-b-md' : ''} ${isMobilePanel ? '' : 'cursor-grab active:cursor-grabbing'}`}
+        onMouseDown={isMobilePanel ? undefined : handlePanelDragStart}
         role="presentation"
       >
         <span className="text-[#E6EDF7]/70" aria-hidden="true">⋮⋮</span>
@@ -822,7 +868,7 @@ export function HandModel({ ditherColorDark, ditherColorLight }: HandModelProps 
       <div className={`relative h-full w-full min-h-[200px] model-container ${isShaking ? 'shake' : ''}`} aria-hidden="true">
         <div ref={containerRef} className="h-full w-full" />
       </div>
-      {typeof document !== 'undefined' && createPortal(panelUI, document.body)}
+      {typeof document !== 'undefined' && createPortal(panelUI, panelPortalTarget ?? document.body)}
     </>
   );
 }
