@@ -594,13 +594,15 @@ export function HandModel({ ditherColorDark, ditherColorLight }: HandModelProps 
         ditheringEffectRef.current.setResolution(w, h);
       }
       
-      // Update position for responsive behavior on screens < 1280px
-      const isSmallScreen = window.innerWidth < 1280;
-      const targetX = isSmallScreen ? 0.35 : 0.55;
-      
-      // Update position X reference and state
-      positionXSliderRef.current = targetX;
-      setPositionX(targetX);
+      // Update position for responsive behavior on desktop only; skip on mobile so
+      // address-bar resize (e.g. on tap/drag) doesn't jump the model X position
+      const isMobileWidth = window.innerWidth < 640;
+      if (!isMobileWidth) {
+        const isSmallScreen = window.innerWidth < 1280;
+        const targetX = isSmallScreen ? 0.35 : 0.55;
+        positionXSliderRef.current = targetX;
+        setPositionX(targetX);
+      }
       
       // Refresh Tweakpane if it exists to show updated value
       if (paneRef.current && typeof paneRef.current.refresh === 'function') {
