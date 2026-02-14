@@ -134,7 +134,13 @@ const DEFAULT_DARK_RGB: [number, number, number] = [0 / 255, 14 / 255, 57 / 255]
 /** Default custom light dither color as RGB 0–1 (r: 230, g: 237, b: 247) */
 const DEFAULT_LIGHT_RGB: [number, number, number] = [230 / 255, 237 / 255, 247 / 255];
 
-const INIT_POS = { x: 0.55, y: -0.60, z: 0.65 };
+// Responsive default position: 0.35 for screens < 1280px, 0.55 for larger screens
+const getDefaultPosition = () => {
+  const isSmallScreen = typeof window !== 'undefined' && window.innerWidth < 1280;
+  return { x: isSmallScreen ? 0.35 : 0.55, y: -0.60, z: 0.65 };
+};
+
+const INIT_POS = getDefaultPosition();
 const INIT_ROT = { x: 0, y: -8 * Math.PI / 180, z: 0 };
 const INIT_SCALE = 0.9;
 const RAD_TO_DEG = 180 / Math.PI;
@@ -171,6 +177,18 @@ export function HandModel({ ditherColorDark, ditherColorLight }: HandModelProps 
   const scaleSliderRef = useRef(INIT_SCALE);
   const positionYSliderRef = useRef(INIT_POS.y);
   const positionXSliderRef = useRef(INIT_POS.x);
+  
+  // Initialize responsive position on mount
+  useEffect(() => {
+    const updateResponsivePosition = () => {
+      const isSmallScreen = window.innerWidth < 1280;
+      const defaultX = isSmallScreen ? 0.35 : 0.55;
+      positionXSliderRef.current = defaultX;
+      setPositionX(defaultX);
+    };
+    
+    updateResponsivePosition();
+  }, []);
 
   const [rotationDeg, setRotationDeg] = useState({
     x: Math.round(INIT_ROT.x * RAD_TO_DEG),
@@ -178,7 +196,10 @@ export function HandModel({ ditherColorDark, ditherColorLight }: HandModelProps 
     z: Math.round(INIT_ROT.z * RAD_TO_DEG)
   });
   const [scale, setScale] = useState(INIT_SCALE);
-  const [positionX, setPositionX] = useState(INIT_POS.x);
+  const [positionX, setPositionX] = useState(() => {
+    const isSmallScreen = typeof window !== 'undefined' && window.innerWidth < 1280;
+    return isSmallScreen ? 0.35 : 0.55;
+  });
   const [positionY, setPositionY] = useState(INIT_POS.y);
   /** Normalized cursor from viewport center: -1..1, (0,0) = center. */
   const cursorRef = useRef({ x: 0, y: 0 });
@@ -481,6 +502,19 @@ export function HandModel({ ditherColorDark, ditherColorLight }: HandModelProps 
       // Update dithering resolution
       if (ditheringEffectRef.current) {
         ditheringEffectRef.current.setResolution(w, h);
+      }
+      
+      // Update position for responsive behavior on screens < 1280px
+      const isSmallScreen = window.innerWidth < 1280;
+      const targetX = isSmallScreen ? 0.35 : 0.55;
+      
+      // Update position X reference and state
+      positionXSliderRef.current = targetX;
+      setPositionX(targetX);
+      
+      // Refresh Tweakpane if it exists to show updated value
+      if (paneRef.current && typeof paneRef.current.refresh === 'function') {
+        paneRef.current.refresh();
       }
     };
     window.addEventListener('resize', onResize);

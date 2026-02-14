@@ -3,7 +3,7 @@ import '../styles/global.css';
 import { HandModel } from '../components/HandModel';
 ---
 
-<html lang="en" class="h-[100dvh] font-neue-haas-grotesque">
+<html lang="en" class="h-auto sm:h-[100dvh] font-neue-haas-grotesque">
 	<head>
 		<meta charset="utf-8" />
 		<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
@@ -16,10 +16,10 @@ import { HandModel } from '../components/HandModel';
 		<meta name="generator" content={Astro.generator} />
 		<title>Thoughtform Worldwide</title>
 	</head>
-	<body class="flex h-[100dvh] flex-col bg-[#E6EDF7] text-blue-900 antialiased">
-		<div class="relative mx-auto grid min-h-0 w-full flex-1 grid-rows-[auto_1fr_auto] px-6 py-6 pb-2 lg:px-6 pointer-events-none">
+	<body class="flex h-auto sm:h-[100dvh] flex-col bg-[#E6EDF7] text-blue-900 antialiased">
+		<div class="relative mx-auto grid w-full flex-none min-h-0 sm:flex-1 grid-rows-[auto_auto_auto] sm:grid-rows-[auto_1fr_auto] px-2 pt-4 pb-2 sm:px-6 pointer-events-none">
 			<!-- Header -->
-			<header class="mb-4 flex items-center justify-between relative z-30 pointer-events-auto">
+			<header class="mb-4 flex items-start justify-between relative z-30 pointer-events-auto">
 				<a href="/" class="flex items-center gap-2">
 					<img src="/MasTer-Hand.png" alt="" class="h-16 w-auto object-contain" width="64" height="64" />
 					<span class="block text-2xl font-bold leading-none tracking-tight">
@@ -37,14 +37,24 @@ import { HandModel } from '../components/HandModel';
 			<!-- Main content -->
 			<main class="flex min-h-0 flex-col relative z-30 pointer-events-none">
 				<div class="grid gap-12 lg:grid-cols-[1fr_auto] lg:items-center lg:gap-16 pointer-events-auto">
-					<div>
-						<h1 class="text-2xl font-normal leading-[1.1] sm:text-5xl lg:text-7xl xl:text-8xl">
-							Modern solutions<br />for the independent<br />landscape.
+					<div class="w-full">
+						<h1 class="w-full text-4xl font-normal leading-[1.1] sm:text-5xl lg:text-7xl xl:text-8xl">
+							<span class="sm:hidden">Modern solutions for the independent landscape.</span>
+							<span class="hidden sm:inline">Modern solutions <br />for the independent <br />landscape.</span>
 						</h1>
 					</div>
 				</div>
 
-				<div class="min-h-0 flex-1 pointer-events-none" aria-hidden="true"></div>
+				<!-- Mobile (< sm): square canvas in flow; sm+: fixed full viewport, spacer keeps layout -->
+				<div
+					class="w-full aspect-square relative z-10 sm:fixed sm:inset-0 sm:aspect-auto sm:h-[100dvh] sm:w-full"
+					aria-hidden="true"
+				>
+					<div class="pointer-events-auto h-full w-full">
+						<HandModel client:load />
+					</div>
+				</div>
+				<div class="min-h-0 flex-1 pointer-events-none hidden sm:block" aria-hidden="true"></div>
 
 				<div class="max-w-2xl mb-6 pointer-events-auto">
 					<!-- <h2 class="mb-4 text-xl font-bold">
@@ -55,7 +65,7 @@ import { HandModel } from '../components/HandModel';
 					</p>
 					<button
 						type="button"
-						class="rounded-md bg-blue-900 px-6 py-3 text-sm font-medium text-white transition-colors hover:bg-blue-800"
+						class="w-full sm:w-auto rounded-md bg-blue-900 px-6 py-3 text-sm font-medium text-white transition-colors hover:bg-blue-800"
 					>
 						Build with us
 					</button>
@@ -63,36 +73,35 @@ import { HandModel } from '../components/HandModel';
 			</main>
 
 			<!-- Footer -->
-			<footer class="flex flex-col gap-6 border-t border-blue-300/30 pt-3 sm:flex-row sm:items-center sm:justify-between relative z-30 pointer-events-auto text-[1.5em]">
-				<div class="flex flex-wrap gap-x-8 gap-y-2">
-					<a href="mailto:julian@thoughtform.world" class="flex items-center gap-1 hover:underline">
+			<footer class="flex flex-col gap-2 border-t border-blue-300/30 pt-3 sm:flex-row sm:items-center sm:justify-between relative z-30 pointer-events-auto text-base sm:text-[1.5em]">
+				<div class="order-3 sm:order-0 flex flex-wrap gap-x-8 gap-y-2 w-full sm:w-auto justify-center sm:justify-start">
+					<a href="mailto:julian@thoughtform.world" class="hidden sm:flex items-center gap-1 hover:underline">
 						<span>→</span>
 						julian@thoughtform.world
 					</a>
-					<span class="flex items-center gap-1">
+					<span class="flex items-center gap-1 pt-1 sm:pt-0">
 						<span>→</span>
-						Los Angeles, CA
+						Los Angeles / Richmond, VA
 					</span>
 				</div>
+				<a
+					href="mailto:julian@thoughtform.world"
+					class="order-1 sm:hidden rounded-md border border-blue-800 px-4 py-2 text-sm font-medium transition-colors hover:bg-blue-900 hover:text-white block text-center"
+				>
+					Contact: julian@thoughtform.world
+				</a>
 				<a
 					href="https://instagram.com/thoughtform_"
 					target="_blank"
 					rel="noopener noreferrer"
-					class="rounded-md border border-blue-800 px-4 py-2 text-sm font-medium transition-colors hover:bg-blue-900 hover:text-white"
+					class="order-2 rounded-md border border-blue-800 px-4 py-2 text-sm font-medium transition-colors hover:bg-blue-900 hover:text-white text-center"
 				>
-					Instagram
+					<span class="sm:hidden">Follow us on Instagram</span>
+					<span class="hidden sm:inline">Instagram</span>
 				</a>
 			</footer>
 
-			<!-- 3D hand: full viewport, behind page content (z-10). Content is z-30 so it receives clicks. -->
-			<div
-				class="pointer-events-none fixed inset-0 z-10 h-[100dvh] w-full"
-				aria-hidden="true"
-			>
-				<div class="pointer-events-auto h-full w-full">
-					<HandModel client:load />
-				</div>
-			</div>
+			<!-- 3D hand: on sm+ fixed full viewport behind content; on mobile in-flow square (see main). -->
 		</div>
 	</body>
 </html>
