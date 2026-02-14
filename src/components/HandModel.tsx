@@ -137,7 +137,7 @@ const DEFAULT_LIGHT_RGB: [number, number, number] = [230 / 255, 237 / 255, 247 /
 // Responsive default position: 0.35 for screens < 1280px, 0.55 for larger; y/z nudged down slightly
 const getDefaultPosition = () => {
   const isSmallScreen = typeof window !== 'undefined' && window.innerWidth < 1280;
-  return { x: isSmallScreen ? 0.35 : 0.55, y: -0.65, z: 0.58 };
+  return { x: isSmallScreen ? 0.35 : 0.55, y: -0.45, z: 0.58 };
 };
 
 const INIT_POS = getDefaultPosition();
@@ -476,14 +476,38 @@ export function HandModel({ ditherColorDark, ditherColorLight }: HandModelProps 
         controls.enabled = true;
       }
     };
-    const onTouchStart = (): void => {
-      triggerShake();
+    // Mobile: only trigger shake on quick tap, not when user is touch-dragging to scroll
+    const tapMoveThresholdSq = 100; // max squared distance (px²) to count as tap
+    const tapMaxDurationMs = 280;
+    let touchStartTime = 0;
+    let touchStartX = 0;
+    let touchStartY = 0;
+    const onTouchStart = (e: TouchEvent): void => {
+      const t = e.targetTouches[0] ?? e.changedTouches[0];
+      if (t) {
+        touchStartTime = Date.now();
+        touchStartX = t.clientX;
+        touchStartY = t.clientY;
+      }
+    };
+    const onTouchEnd = (e: TouchEvent): void => {
+      const t = e.changedTouches[0];
+      if (!t || touchStartTime === 0) return;
+      const dt = Date.now() - touchStartTime;
+      const dx = t.clientX - touchStartX;
+      const dy = t.clientY - touchStartY;
+      const distSq = dx * dx + dy * dy;
+      if (dt <= tapMaxDurationMs && distSq <= tapMoveThresholdSq) {
+        triggerShake();
+      }
+      touchStartTime = 0;
     };
     window.addEventListener('mousemove', onMouseMove);
     container.addEventListener('mousedown', onMouseDown);
     window.addEventListener('mouseup', onMouseUp);
     if (isMobile) {
       container.addEventListener('touchstart', onTouchStart, { passive: true });
+      container.addEventListener('touchend', onTouchEnd, { passive: true });
     }
 
     let frameId: number;
@@ -591,6 +615,7 @@ export function HandModel({ ditherColorDark, ditherColorLight }: HandModelProps 
       window.removeEventListener('mouseup', onMouseUp);
       if (isMobile) {
         container.removeEventListener('touchstart', onTouchStart);
+        container.removeEventListener('touchend', onTouchEnd);
       }
       window.removeEventListener('resize', onResize);
       cancelAnimationFrame(frameId);
