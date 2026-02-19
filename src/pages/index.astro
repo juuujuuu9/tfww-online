@@ -1,6 +1,9 @@
 ---
 import '../styles/global.css';
+import { site } from '../config/site';
 import { HandModel } from '../components/HandModel';
+const contactHref = `mailto:${site.contactEmail}`;
+const canonicalUrl = new URL(Astro.url.pathname, Astro.url.origin).href;
 ---
 
 <html lang="en" class="h-auto sm:h-[100dvh] font-neue-haas-grotesque">
@@ -13,8 +16,14 @@ import { HandModel } from '../components/HandModel';
 		<link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png" />
 		<link rel="manifest" href="/site.webmanifest" />
 		<meta name="viewport" content="width=device-width" />
+		<meta name="description" content={site.description} />
+		<link rel="canonical" href={canonicalUrl} />
 		<meta name="generator" content={Astro.generator} />
-		<title>Thoughtform Worldwide</title>
+		<title>{site.title}</title>
+		<meta property="og:title" content={site.title} />
+		<meta property="og:description" content={site.description} />
+		<meta property="og:type" content="website" />
+		<meta property="og:url" content={canonicalUrl} />
 	</head>
 	<body class="flex h-auto sm:h-[100dvh] flex-col bg-[#E6EDF7] text-blue-900 antialiased overflow-x-hidden">
 		<div class="relative mx-auto grid w-full flex-none min-h-0 sm:flex-1 grid-rows-[auto_auto_auto] sm:grid-rows-[auto_1fr_auto] pt-4 pb-2 pointer-events-none">
@@ -27,7 +36,7 @@ import { HandModel } from '../components/HandModel';
 					</span>
 				</a>
 					<a
-						href="mailto:julian@thoughtform.world"
+						href={contactHref}
 						class="mt-1.5 sm:mt-0 rounded-md border border-blue-800 px-4 py-2 text-sm font-medium transition-colors hover:bg-blue-900 hover:text-white inline-block"
 					>
 					Contact
@@ -67,10 +76,10 @@ import { HandModel } from '../components/HandModel';
 						Thoughtform Worldwide is a boutique development studio focused on the intersection of technical precision and cultural influence. We provide specialist digital and physical infrastructure for creators and brands who have outgrown standard solutions. Referral-based support for those building what’s next.
 					</p>
 					<a
-						href="mailto:julian@thoughtform.world"
+						href={contactHref}
 						class="w-full sm:w-auto rounded-md bg-blue-900 px-6 py-3 text-sm font-medium text-white transition-colors hover:bg-blue-800 inline-block text-center"
 					>
-						Build with us
+					Build with us
 					</a>
 				</div>
 			</main>
@@ -78,9 +87,9 @@ import { HandModel } from '../components/HandModel';
 			<!-- Footer -->
 			<footer class="flex flex-col gap-2 border-t border-blue-300/30 pt-3 sm:flex-row sm:items-center sm:justify-between relative z-30 pointer-events-auto text-base sm:text-[1.5em] px-2 sm:px-6">
 				<div class="order-3 sm:order-0 flex flex-wrap gap-x-8 gap-y-2 w-full sm:w-auto justify-center sm:justify-start">
-					<a href="mailto:julian@thoughtform.world" class="hidden sm:flex items-center gap-1 hover:underline">
+					<a href={contactHref} class="hidden sm:flex items-center gap-1 hover:underline">
 						<span>→</span>
-						julian@thoughtform.world
+						{site.contactEmail}
 					</a>
 					<span class="flex items-center gap-1 pt-1 sm:pt-0">
 						<span>→</span>
@@ -88,13 +97,13 @@ import { HandModel } from '../components/HandModel';
 					</span>
 				</div>
 				<a
-					href="mailto:julian@thoughtform.world"
+					href={contactHref}
 					class="order-1 sm:hidden rounded-md border border-blue-800 px-4 py-2 text-sm font-medium transition-colors hover:bg-blue-900 hover:text-white block text-center"
 				>
-					Contact: julian@thoughtform.world
+					Contact: {site.contactEmail}
 				</a>
 				<a
-					href="https://instagram.com/thoughtform_"
+					href={site.instagramUrl}
 					target="_blank"
 					rel="noopener noreferrer"
 					class="order-2 rounded-md border border-blue-800 px-4 py-2 text-sm font-medium transition-colors hover:bg-blue-900 hover:text-white text-center"

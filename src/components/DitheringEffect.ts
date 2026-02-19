@@ -1,5 +1,8 @@
-import { Vector3 } from 'three';
+import { Vector2, Vector3 } from 'three';
 import { Effect, EffectAttribute } from 'postprocessing';
+
+/** Alpha below this threshold: pixel treated as transparent (skip dithering). */
+const ALPHA_THRESHOLD = 0.2;
 
 /**
  * Dithering effect implementing ordered dithering with a 4x4 Bayer matrix.
@@ -16,6 +19,7 @@ export class DitheringEffect extends Effect {
     uniform vec3 colorDark;
     uniform vec3 colorLight;
     uniform vec2 resolution;
+    uniform float alphaThreshold;
 
     // 4x4 Bayer matrix for ordered dithering
     bool getValue(float brightness, vec2 pos) {
@@ -53,8 +57,8 @@ export class DitheringEffect extends Effect {
         return;
       }
 
-      // Skip dithering for transparent/background/semi-transparent pixels; output transparent so page background shows through (no white band)
-      if (inputColor.a < 0.2) {
+      // Skip dithering for transparent/background/semi-transparent pixels; output transparent so page background shows through
+      if (inputColor.a < alphaThreshold) {
         outputColor = vec4(0.0, 0.0, 0.0, 0.0);
         return;
       }
@@ -69,7 +73,7 @@ export class DitheringEffect extends Effect {
       vec4 baseColor = texture2D(inputBuffer, pixelatedUV);
       
       // Skip dithering when block is semi-transparent; output transparent so no white band or ghosting
-      if (baseColor.a < 0.2) {
+      if (baseColor.a < alphaThreshold) {
         outputColor = vec4(0.0, 0.0, 0.0, 0.0);
         return;
       }
@@ -122,7 +126,8 @@ export class DitheringEffect extends Effect {
         ['useCustomLightColor', { value: options.colorLight != null }],
         ['colorDark', { value: new Vector3(...colorDark) }],
         ['colorLight', { value: new Vector3(...colorLight) }],
-        ['resolution', { value: [window.innerWidth, window.innerHeight] }]
+        ['resolution', { value: new Vector2(window.innerWidth, window.innerHeight) }],
+        ['alphaThreshold', { value: ALPHA_THRESHOLD }]
       ])
     });
   }
@@ -173,7 +178,7 @@ export class DitheringEffect extends Effect {
    * @param height - Screen height
    */
   setResolution(width: number, height: number): void {
-    this.uniforms.get('resolution')!.value = [width, height];
+    (this.uniforms.get('resolution')!.value as Vector2).set(width, height);
   }
 
   /**

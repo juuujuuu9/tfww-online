@@ -20,7 +20,34 @@ const TOWEL_TEXTURES = {
   displacement: `${TEXTURE_BASE_PATH}/TowelCotton001_DISP_1K.png`
 };
 
-// Material: white base with strong form definition (normals, AO) so hand reads clearly
+// Breakpoints (align with Tailwind sm/xl when possible)
+const BREAKPOINT_MOBILE_PX = 640;
+const BREAKPOINT_SMALL_DESKTOP_PX = 1280;
+
+const CAMERA_FOV = 28;
+const CAMERA_NEAR = 0.1;
+const CAMERA_FAR = 100;
+const SHADOW_MAP_SIZE = 1024;
+
+/** Delay after Tweakpane’s ~200ms height transition before rounding bar. */
+const PANEL_COLLAPSE_DELAY_MS = 220;
+const PANEL_DEFAULT_X_PX = 616;
+const PANEL_MIN_TOP_PX = 16;
+/** Viewport height minus this = panel top (so panel sits above bottom). */
+const PANEL_VERTICAL_FROM_BOTTOM_PX = 495;
+
+const SHAKE_DECAY = 0.92;
+const SHAKE_MIN_INTENSITY = 0.01;
+const SHAKE_FREQUENCY = 0.3;
+const FRAME_TIME_MS = 16;
+
+/** Max squared distance (px²) for touch to count as tap vs scroll-drag. */
+const TAP_MOVE_THRESHOLD_SQ = 100;
+const TAP_MAX_DURATION_MS = 280;
+
+const MODEL_MIN_HEIGHT_PX = 200;
+
+// Material: white base with strong form definition (normals, AO) so hand reads clearly.
 const createLightMaterial = (textureLoader: TextureLoader) => {
   const material = new THREE.MeshStandardMaterial({
     color: 0xffffff,
@@ -39,7 +66,6 @@ const createLightMaterial = (textureLoader: TextureLoader) => {
       texture.wrapT = THREE.RepeatWrapping;
       texture.repeat.set(2, 2);
       material.map = texture;
-      material.mapIntensity = 0.85; // Strong enough to show fabric detail
       material.needsUpdate = true;
     },
     undefined,
@@ -96,11 +122,9 @@ const createLightMaterial = (textureLoader: TextureLoader) => {
 // Keep the original towel cotton material function as fallback
 const createTowelCottonMaterial = createLightMaterial;
 
-// Simple placeholder geometry when GLB file is not available
+// Simple placeholder geometry when GLB file is not available.
 const createPlaceholderHand = (textureLoader: TextureLoader) => {
   const group = new THREE.Group();
-  
-  // Create lighter material for placeholder
   const placeholderMaterial = createLightMaterial(textureLoader);
   
   // Create a simple hand-like shape using basic geometries
@@ -134,9 +158,9 @@ const DEFAULT_DARK_RGB: [number, number, number] = [0 / 255, 14 / 255, 57 / 255]
 /** Default custom light dither color as RGB 0–1 (r: 230, g: 237, b: 247) */
 const DEFAULT_LIGHT_RGB: [number, number, number] = [230 / 255, 237 / 255, 247 / 255];
 
-// Responsive default position: 0.35 for screens < 1280px, 0.55 for larger; y/z nudged down slightly
+// Responsive default position: 0.35 for screens < BREAKPOINT_SMALL_DESKTOP_PX, 0.55 for larger
 const getDefaultPosition = () => {
-  const isSmallScreen = typeof window !== 'undefined' && window.innerWidth < 1280;
+  const isSmallScreen = typeof window !== 'undefined' && window.innerWidth < BREAKPOINT_SMALL_DESKTOP_PX;
   return { x: isSmallScreen ? 0.35 : 0.55, y: -0.45, z: 0.58 };
 };
 
@@ -151,7 +175,7 @@ const MOBILE_SCALE = 1.0;
 const MOBILE_POS = { x: -0.13, y: -0.53 };
 const MOBILE_GRID_SIZE = 1.0;
 const isMobileViewport = (): boolean =>
-  typeof window !== 'undefined' && window.innerWidth < 640;
+  typeof window !== 'undefined' && window.innerWidth < BREAKPOINT_MOBILE_PX;
 
 /** Max rotation (radians) when cursor is at edge; rest state. */
 const CURSOR_TILT_STRENGTH = 0.12;
@@ -188,7 +212,7 @@ export function HandModel({ ditherColorDark, ditherColorLight }: HandModelProps 
   
   // Initialize responsive position and mobile canvas defaults on mount
   useEffect(() => {
-    if (window.innerWidth < 640) {
+    if (window.innerWidth < BREAKPOINT_MOBILE_PX) {
       const degToRad = (d: number) => (d * Math.PI) / 180;
       rotationSliderRef.current = {
         x: degToRad(MOBILE_ROT_DEG.x),
@@ -200,7 +224,7 @@ export function HandModel({ ditherColorDark, ditherColorLight }: HandModelProps 
       positionYSliderRef.current = MOBILE_POS.y;
       return;
     }
-    const isSmallScreen = window.innerWidth < 1280;
+    const isSmallScreen = window.innerWidth < BREAKPOINT_SMALL_DESKTOP_PX;
     const defaultX = isSmallScreen ? 0.35 : 0.55;
     positionXSliderRef.current = defaultX;
     setPositionX(defaultX);
@@ -220,7 +244,7 @@ export function HandModel({ ditherColorDark, ditherColorLight }: HandModelProps 
   );
   const [positionX, setPositionX] = useState(() => {
     if (isMobileViewport()) return MOBILE_POS.x;
-    const isSmallScreen = typeof window !== 'undefined' && window.innerWidth < 1280;
+    const isSmallScreen = typeof window !== 'undefined' && window.innerWidth < BREAKPOINT_SMALL_DESKTOP_PX;
     return isSmallScreen ? 0.35 : 0.55;
   });
   const [positionY, setPositionY] = useState(() =>
@@ -255,11 +279,14 @@ export function HandModel({ ditherColorDark, ditherColorLight }: HandModelProps 
   const paneContainerRef = useRef<HTMLDivElement>(null);
   const paneRef = useRef<Pane | null>(null);
 
-  // Draggable controls panel: position in px, start ~600px right of left edge (desktop only)
-  const [panelPosition, setPanelPosition] = useState(() => ({
-    x: 616,
-    y: Math.max(16, (typeof window !== 'undefined' ? window.innerHeight : 600) - 420) + 225 - 300
-  }));
+  // Draggable controls panel: position in px (desktop only)
+  const [panelPosition, setPanelPosition] = useState(() => {
+    const h = typeof window !== 'undefined' ? window.innerHeight : 600;
+    return {
+      x: PANEL_DEFAULT_X_PX,
+      y: Math.max(PANEL_MIN_TOP_PX, h - PANEL_VERTICAL_FROM_BOTTOM_PX)
+    };
+  });
   const dragStartRef = useRef<{ clientX: number; clientY: number; panelX: number; panelY: number } | null>(null);
 
   // On < sm: portal panel into #mobile-control-pane-slot (above paragraph); otherwise portal to body (draggable).
@@ -267,13 +294,13 @@ export function HandModel({ ditherColorDark, ditherColorLight }: HandModelProps 
   const [panelPortalTarget, setPanelPortalTarget] = useState<HTMLElement | null>(() => {
     if (typeof document === 'undefined') return null;
     const slot = document.getElementById('mobile-control-pane-slot');
-    return window.innerWidth < 640 && slot ? slot : document.body;
+    return window.innerWidth < BREAKPOINT_MOBILE_PX && slot ? slot : document.body;
   });
   useEffect(() => {
     const updateTarget = (): void => {
       const slot = document.getElementById('mobile-control-pane-slot');
       setPanelPortalTarget(
-        window.innerWidth < 640 && slot ? slot : document.body
+        window.innerWidth < BREAKPOINT_MOBILE_PX && slot ? slot : document.body
       );
     };
     window.addEventListener('resize', updateTarget);
@@ -289,7 +316,7 @@ export function HandModel({ ditherColorDark, ditherColorLight }: HandModelProps 
     const width = container.clientWidth;
     const height = container.clientHeight;
     const scene = new THREE.Scene();
-    const camera = new THREE.PerspectiveCamera(28, width / height, 0.1, 100);
+    const camera = new THREE.PerspectiveCamera(CAMERA_FOV, width / height, CAMERA_NEAR, CAMERA_FAR);
     camera.position.set(0, 0, 4);
 
     const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
@@ -333,7 +360,7 @@ export function HandModel({ ditherColorDark, ditherColorLight }: HandModelProps 
     controls.target.set(0, 0, 0);
 
     // Mobile: no touch orbit so user can scroll through the canvas; allow vertical scroll (touch-action)
-    const isMobile = window.innerWidth < 640;
+    const isMobile = window.innerWidth < BREAKPOINT_MOBILE_PX;
     if (isMobile) {
       controls.enabled = false;
       renderer.domElement.style.touchAction = 'pan-y';
@@ -431,8 +458,8 @@ export function HandModel({ ditherColorDark, ditherColorLight }: HandModelProps 
     topSpotlight.position.set(0, 5, 0); // Directly above the model
     topSpotlight.target.position.set(0, 0, 0); // Point at model center
     topSpotlight.castShadow = true;
-    topSpotlight.shadow.mapSize.width = 1024;
-    topSpotlight.shadow.mapSize.height = 1024;
+    topSpotlight.shadow.mapSize.width = SHADOW_MAP_SIZE;
+    topSpotlight.shadow.mapSize.height = SHADOW_MAP_SIZE;
     scene.add(topSpotlight);
     scene.add(topSpotlight.target);
 
@@ -477,8 +504,6 @@ export function HandModel({ ditherColorDark, ditherColorLight }: HandModelProps 
       }
     };
     // Mobile: only trigger shake on quick tap, not when user is touch-dragging to scroll
-    const tapMoveThresholdSq = 100; // max squared distance (px²) to count as tap
-    const tapMaxDurationMs = 280;
     let touchStartTime = 0;
     let touchStartX = 0;
     let touchStartY = 0;
@@ -497,7 +522,7 @@ export function HandModel({ ditherColorDark, ditherColorLight }: HandModelProps 
       const dx = t.clientX - touchStartX;
       const dy = t.clientY - touchStartY;
       const distSq = dx * dx + dy * dy;
-      if (dt <= tapMaxDurationMs && distSq <= tapMoveThresholdSq) {
+      if (dt <= TAP_MAX_DURATION_MS && distSq <= TAP_MOVE_THRESHOLD_SQ) {
         triggerShake();
       }
       touchStartTime = 0;
@@ -526,12 +551,12 @@ export function HandModel({ ditherColorDark, ditherColorLight }: HandModelProps 
       cursorSmoothedRef.current = sm;
 
       // Update time for floating animation
-      timeRef.current += 16; // Approximate 60fps frame time
+      timeRef.current += FRAME_TIME_MS;
 
       // Handle shake animation
       if (isShakingRef.current) {
-        shakeIntensityRef.current *= 0.92; // Decay shake intensity
-        if (shakeIntensityRef.current < 0.01) {
+        shakeIntensityRef.current *= SHAKE_DECAY;
+        if (shakeIntensityRef.current < SHAKE_MIN_INTENSITY) {
           isShakingRef.current = false;
           shakeIntensityRef.current = 0;
           setIsShaking(false);
@@ -555,11 +580,10 @@ export function HandModel({ ditherColorDark, ditherColorLight }: HandModelProps 
         let shakeX = 0, shakeY = 0, shakeZ = 0;
         if (isShakingRef.current && shakeIntensityRef.current > 0) {
           const shakeIntensity = shakeIntensityRef.current;
-          const shakeFrequency = 0.3; // Fast shake
           const time = timeRef.current;
-          shakeX = (Math.sin(time * shakeFrequency * 8) * 0.02 + Math.sin(time * shakeFrequency * 13) * 0.015) * shakeIntensity;
-          shakeY = (Math.cos(time * shakeFrequency * 11) * 0.02 + Math.sin(time * shakeFrequency * 17) * 0.015) * shakeIntensity;
-          shakeZ = (Math.sin(time * shakeFrequency * 9) * 0.01 + Math.cos(time * shakeFrequency * 15) * 0.01) * shakeIntensity;
+          shakeX = (Math.sin(time * SHAKE_FREQUENCY * 8) * 0.02 + Math.sin(time * SHAKE_FREQUENCY * 13) * 0.015) * shakeIntensity;
+          shakeY = (Math.cos(time * SHAKE_FREQUENCY * 11) * 0.02 + Math.sin(time * SHAKE_FREQUENCY * 17) * 0.015) * shakeIntensity;
+          shakeZ = (Math.sin(time * SHAKE_FREQUENCY * 9) * 0.01 + Math.cos(time * SHAKE_FREQUENCY * 15) * 0.01) * shakeIntensity;
         }
         const shakePosX = isMobile ? 0 : shakeX;
         const shakePosY = isMobile ? 0 : shakeY;
@@ -596,17 +620,12 @@ export function HandModel({ ditherColorDark, ditherColorLight }: HandModelProps 
       
       // Update position for responsive behavior on desktop only; skip on mobile so
       // address-bar resize (e.g. on tap/drag) doesn't jump the model X position
-      const isMobileWidth = window.innerWidth < 640;
+      const isMobileWidth = window.innerWidth < BREAKPOINT_MOBILE_PX;
       if (!isMobileWidth) {
-        const isSmallScreen = window.innerWidth < 1280;
+        const isSmallScreen = window.innerWidth < BREAKPOINT_SMALL_DESKTOP_PX;
         const targetX = isSmallScreen ? 0.35 : 0.55;
         positionXSliderRef.current = targetX;
         setPositionX(targetX);
-      }
-      
-      // Refresh Tweakpane if it exists to show updated value
-      if (paneRef.current && typeof paneRef.current.refresh === 'function') {
-        paneRef.current.refresh();
       }
     };
     window.addEventListener('resize', onResize);
@@ -622,9 +641,32 @@ export function HandModel({ ditherColorDark, ditherColorLight }: HandModelProps 
       window.removeEventListener('resize', onResize);
       cancelAnimationFrame(frameId);
       controls.dispose();
+      ground.geometry.dispose();
+      ground.material.dispose();
+      const model = modelRef.current;
+      if (model) {
+        model.traverse((child) => {
+          const mesh = child as THREE.Mesh;
+          if (mesh.isMesh) {
+            mesh.geometry?.dispose();
+            const mats = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
+            mats.forEach((m) => {
+              if (m) {
+                m.map?.dispose();
+                m.normalMap?.dispose();
+                m.roughnessMap?.dispose();
+                m.aoMap?.dispose();
+                m.dispose();
+              }
+            });
+          }
+        });
+      }
       if (composerRef.current) {
         composerRef.current.dispose();
       }
+      composerRef.current = null;
+      ditheringEffectRef.current = null;
       renderer.dispose();
       if (renderer.domElement.parentNode === container) {
         container.removeChild(renderer.domElement);
@@ -830,7 +872,7 @@ export function HandModel({ ditherColorDark, ditherColorLight }: HandModelProps 
       collapseTimeoutRef.current = setTimeout(() => {
         setBarRoundedBottom(true);
         collapseTimeoutRef.current = null;
-      }, 220); // Slightly after Tweakpane’s 200ms height transition
+      }, PANEL_COLLAPSE_DELAY_MS); // Slightly after Tweakpane’s 200ms height transition
     }
   };
 
@@ -915,7 +957,7 @@ export function HandModel({ ditherColorDark, ditherColorLight }: HandModelProps 
 
   return (
     <>
-      <div className={`relative h-full w-full min-h-[200px] model-container ${isShaking ? 'shake' : ''}`} aria-hidden="true">
+      <div data-testid="model-container" className={`relative h-full w-full model-container ${isShaking ? 'shake' : ''}`} style={{ minHeight: `${MODEL_MIN_HEIGHT_PX}px` }} aria-hidden="true">
         <div ref={containerRef} className="h-full w-full" />
       </div>
       {typeof document !== 'undefined' && !isMobilePanel && createPortal(panelUI, panelPortalTarget ?? document.body)}
