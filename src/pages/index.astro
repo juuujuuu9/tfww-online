@@ -56,10 +56,10 @@ const canonicalUrl = new URL(Astro.url.pathname, Astro.url.origin).href;
 
 				<!-- Mobile (< sm): taller canvas so hover/float isn't clipped; sm+: fixed full viewport -->
 				<div
-					class="w-full aspect-[3/4] relative z-10 sm:fixed sm:inset-0 sm:aspect-auto sm:h-[115dvh] sm:w-full"
+					class="w-full aspect-[3/4] relative z-10 sm:fixed sm:inset-0 sm:aspect-auto sm:h-[115dvh] sm:w-full sm:pointer-events-none"
 					aria-hidden="true"
 				>
-					<div class="pointer-events-auto h-full w-full">
+					<div class="pointer-events-auto sm:pointer-events-none h-full w-full">
 						<HandModel client:load />
 					</div>
 				</div>
