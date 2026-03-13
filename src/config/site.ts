@@ -5,6 +5,7 @@
 export const site = {
   contactEmail: 'julian@thoughtform.world',
   instagramUrl: 'https://instagram.com/thoughtform_',
+  soundcloudUrl: 'https://soundcloud.com/thoughtformww',
   /** Site description for meta and OpenGraph. */
   description:
     'Thoughtform Worldwide — boutique development studio for creators and brands building what\'s next.',

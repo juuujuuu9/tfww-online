@@ -86,7 +86,7 @@ const canonicalUrl = new URL(Astro.url.pathname, Astro.url.origin).href;
 
 			<!-- Footer -->
 			<footer class="flex flex-col gap-2 border-t border-blue-300/30 pt-3 sm:flex-row sm:items-center sm:justify-between relative z-30 pointer-events-auto text-base sm:text-[1.5em] px-2 sm:px-6">
-				<div class="order-3 sm:order-0 flex flex-wrap gap-x-8 gap-y-2 w-full sm:w-auto justify-center sm:justify-start">
+				<div class="order-4 sm:order-0 flex flex-wrap gap-x-8 gap-y-2 w-full sm:w-auto justify-center sm:justify-start">
 					<a href={contactHref} class="hidden sm:flex items-center gap-1 hover:underline">
 						<span>→</span>
 						{site.contactEmail}
@@ -102,15 +102,26 @@ const canonicalUrl = new URL(Astro.url.pathname, Astro.url.origin).href;
 				>
 					Contact: {site.contactEmail}
 				</a>
-				<a
-					href={site.instagramUrl}
-					target="_blank"
-					rel="noopener noreferrer"
-					class="order-2 rounded-md border border-blue-800 px-4 py-2 text-sm font-medium transition-colors hover:bg-blue-900 hover:text-white text-center"
-				>
-					<span class="sm:hidden">Follow us on Instagram</span>
-					<span class="hidden sm:inline">Instagram</span>
-				</a>
+				<div class="order-2 sm:order-1 flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+					<a
+						href={site.instagramUrl}
+						target="_blank"
+						rel="noopener noreferrer"
+						class="rounded-md border border-blue-800 px-4 py-2 text-sm font-medium transition-colors hover:bg-blue-900 hover:text-white text-center"
+					>
+						<span class="sm:hidden">Follow us on Instagram</span>
+						<span class="hidden sm:inline">Instagram</span>
+					</a>
+					<a
+						href={site.soundcloudUrl}
+						target="_blank"
+						rel="noopener noreferrer"
+						class="rounded-md border border-blue-800 px-4 py-2 text-sm font-medium transition-colors hover:bg-blue-900 hover:text-white text-center"
+					>
+						<span class="sm:hidden">Listen on SoundCloud</span>
+						<span class="hidden sm:inline">SoundCloud</span>
+					</a>
+				</div>
 			</footer>
 
 			<!-- 3D hand: on sm+ fixed full viewport behind content; on mobile in-flow square (see main). -->
