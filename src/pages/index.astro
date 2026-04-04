@@ -24,6 +24,9 @@ const canonicalUrl = new URL(Astro.url.pathname, Astro.url.origin).href;
 		<meta property="og:description" content={site.description} />
 		<meta property="og:type" content="website" />
 		<meta property="og:url" content={canonicalUrl} />
+		{import.meta.env.PROD && (
+			<script defer src="https://cloud.umami.is/script.js" data-website-id={site.umamiWebsiteId} />
+		)}
 	</head>
 	<body class="flex h-auto sm:h-[100dvh] flex-col bg-[#E6EDF7] text-blue-900 antialiased overflow-x-hidden">
 		<div class="relative mx-auto grid w-full flex-none min-h-0 sm:flex-1 grid-rows-[auto_auto_auto] sm:grid-rows-[auto_1fr_auto] pt-4 pb-2 pointer-events-none">
@@ -55,10 +58,11 @@ const canonicalUrl = new URL(Astro.url.pathname, Astro.url.origin).href;
 				</div>
 
 				<!-- Mobile (< sm): taller canvas so hover/float isn't clipped; sm+: fixed full viewport -->
-				<div
-					class="w-full aspect-[3/4] relative z-10 sm:fixed sm:inset-0 sm:aspect-auto sm:h-[115dvh] sm:w-full sm:pointer-events-none"
-					aria-hidden="true"
-				>
+			<div
+				id="hand-canvas"
+				class="w-full aspect-[3/4] relative z-10 sm:fixed sm:inset-0 sm:aspect-auto sm:h-[115dvh] sm:w-full sm:pointer-events-none transition-opacity duration-700 ease-in-out"
+				aria-hidden="true"
+			>
 					<div class="pointer-events-auto sm:pointer-events-none h-full w-full">
 						<HandModel client:load />
 					</div>
@@ -75,12 +79,21 @@ const canonicalUrl = new URL(Astro.url.pathname, Astro.url.origin).href;
 					<p class="mb-8 leading-relaxed max-w-sm text-blue-800/90">
 						Thoughtform Worldwide is a boutique development studio focused on the intersection of technical precision and cultural influence. We provide specialist digital and physical infrastructure for creators and brands who have outgrown standard solutions. Referral-based support for those building what’s next.
 					</p>
+				<div class="flex flex-col sm:flex-row gap-3">
 					<a
 						href={contactHref}
 						class="w-full sm:w-auto rounded-md bg-blue-900 px-6 py-3 text-sm font-medium text-white transition-colors hover:bg-blue-800 inline-block text-center"
 					>
 					Build with us
 					</a>
+					<button
+						id="brands-btn"
+						type="button"
+						class="hidden sm:inline-block rounded-md border border-blue-800 px-6 py-3 text-sm font-medium transition-colors hover:bg-blue-900 hover:text-white text-center cursor-pointer"
+					>
+					Brands We've Touched
+					</button>
+				</div>
 				</div>
 			</main>
 
@@ -124,7 +137,86 @@ const canonicalUrl = new URL(Astro.url.pathname, Astro.url.origin).href;
 				</div>
 			</footer>
 
-			<!-- 3D hand: on sm+ fixed full viewport behind content; on mobile in-flow square (see main). -->
+		<!-- 3D hand: on sm+ fixed full viewport behind content; on mobile in-flow square (see main). -->
+
+		<!-- Brands panel: fades in when 3D canvas fades out -->
+		<div
+			id="brands-panel"
+			class="hidden sm:block fixed inset-0 z-20 pointer-events-none opacity-0 transition-opacity duration-700 ease-in-out"
+		>
+			<div class="absolute top-28 right-6 bottom-20 left-[50%] flex flex-col gap-6 overflow-y-auto">
+				<!-- Brand logo grid: 3 cols × 2 rows -->
+				<div class="grid grid-cols-3 border border-blue-900/20 rounded-md overflow-hidden">
+					<div class="flex flex-col items-center justify-center gap-3 border-r border-b border-blue-900/20 p-6">
+						<div class="h-16 w-16 bg-blue-900/10 rounded"></div>
+						<span class="font-bold text-sm tracking-widest text-center uppercase">Interface<br/>AG</span>
+					</div>
+					<div class="flex flex-col items-center justify-center gap-3 border-r border-b border-blue-900/20 p-6">
+						<div class="h-16 w-16 bg-blue-900/10 rounded"></div>
+						<span class="font-bold text-sm tracking-widest text-center uppercase">Neural<br/>Codex</span>
+					</div>
+					<div class="flex flex-col items-center justify-center gap-3 border-b border-blue-900/20 p-6">
+						<div class="h-16 w-16 bg-blue-900/10 rounded"></div>
+						<span class="font-bold text-sm tracking-widest text-center uppercase">Systema<br/>Sync</span>
+					</div>
+					<div class="flex flex-col items-center justify-center gap-3 border-r border-blue-900/20 p-6">
+						<div class="h-16 w-16 bg-blue-900/10 rounded"></div>
+						<span class="font-bold text-sm tracking-widest text-center uppercase">Kinetic<br/>Dynamics</span>
+					</div>
+					<div class="flex flex-col items-center justify-center gap-3 border-r border-blue-900/20 p-6">
+						<div class="h-16 w-16 bg-blue-900/10 rounded"></div>
+						<span class="font-bold text-sm tracking-widest text-center uppercase">Arcade<br/>Studios</span>
+					</div>
+					<div class="flex flex-col items-center justify-center gap-3 p-6">
+						<div class="h-16 w-16 bg-blue-900/10 rounded"></div>
+						<span class="font-bold text-sm tracking-widest text-center uppercase">Velocity<br/>Lab</span>
+					</div>
+				</div>
+
+				<!-- Engagements table -->
+				<div class="grid grid-cols-2 border border-blue-900/20 rounded-md overflow-hidden">
+					<div class="border-r border-blue-900/20 p-6">
+						<h3 class="mb-4 text-xs font-bold tracking-[0.2em] uppercase">Direct Engagements</h3>
+						<ul class="space-y-2 text-sm">
+							<li class="flex justify-between gap-4"><span>Arcade Studios</span><span class="text-blue-800/60">(Identity &amp; Web)</span></li>
+							<li class="flex justify-between gap-4"><span>Spectrum</span><span class="text-blue-800/60">(Frontend Arch.)</span></li>
+							<li class="flex justify-between gap-4"><span>Velocity</span><span class="text-blue-800/60">(Strategy)</span></li>
+						</ul>
+					</div>
+					<div class="p-6">
+						<h3 class="mb-4 text-xs font-bold tracking-[0.2em] uppercase">In Partnership with Agencies</h3>
+						<ul class="space-y-2 text-sm">
+							<li class="flex justify-between gap-4"><span>Interface AG</span><span class="text-blue-800/60">(Frontend Dev)</span></li>
+							<li class="flex justify-between gap-4"><span>Neural Codex</span><span class="text-blue-800/60">(UI/UX)</span></li>
+							<li class="flex justify-between gap-4"><span>Systema Sync</span><span class="text-blue-800/60">(Web Platform)</span></li>
+						</ul>
+					</div>
+				</div>
+			</div>
 		</div>
+	</div>
+	<script>
+		const brandsBtn = document.getElementById('brands-btn');
+		const handCanvas = document.getElementById('hand-canvas');
+		const brandsPanel = document.getElementById('brands-panel');
+		if (brandsBtn && handCanvas && brandsPanel) {
+			brandsBtn.addEventListener('click', () => {
+				const showing3d = handCanvas.style.opacity !== '0';
+				const controlsPanel = document.querySelector<HTMLElement>('[aria-label="Controls"]');
+
+				handCanvas.style.opacity = showing3d ? '0' : '1';
+				handCanvas.style.pointerEvents = showing3d ? 'none' : '';
+
+				brandsPanel.style.opacity = showing3d ? '1' : '0';
+				brandsPanel.style.pointerEvents = showing3d ? 'auto' : 'none';
+
+				if (controlsPanel) {
+					controlsPanel.style.transition = 'opacity 700ms ease-in-out';
+					controlsPanel.style.opacity = showing3d ? '0' : '1';
+					controlsPanel.style.pointerEvents = showing3d ? 'none' : '';
+				}
+			});
+		}
+	</script>
 	</body>
 </html>

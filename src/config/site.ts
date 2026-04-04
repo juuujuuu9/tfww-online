@@ -11,6 +11,8 @@ export const site = {
     'Thoughtform Worldwide — boutique development studio for creators and brands building what\'s next.',
   /** Site title for meta and OpenGraph. */
   title: 'Thoughtform Worldwide',
+  /** Umami (https://cloud.umami.is) — website ID from the Umami dashboard. */
+  umamiWebsiteId: 'efcfa827-c1d1-44eb-86e7-ce82f38a6764',
 } as const;
 
 export type SiteConfig = typeof site;
